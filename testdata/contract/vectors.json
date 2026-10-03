@@ -1,0 +1,1099 @@
+{
+  "schema": "relux-network-profiles-v1",
+  "generator": "go run ./internal/contract/cmd/contract-vectors",
+  "record": [
+    {
+      "id": "R1",
+      "note": "a real preflight with a fixed observation time",
+      "record": {
+        "schema": "relux-network-binding-record-v1",
+        "profile_ref": "egress-a",
+        "profile_digest": "sha256:1e5912de9e3459a12b7365f338d385c1c4c7b4a6b622598e17ed4004d7658699",
+        "adapter_identity": {
+          "adapter": "generic-env-v1",
+          "harness": "exec",
+          "build": "",
+          "entrypoint": "codex"
+        },
+        "assurance": "cooperative",
+        "origin": "explicit",
+        "probe": {
+          "tcp": "ok",
+          "connect": "ok",
+          "tls": "ok",
+          "checked_at": "2026-10-01T12:00:00Z"
+        }
+      }
+    },
+    {
+      "id": "R2",
+      "note": "no probe supplied: all steps skipped and the time is zero",
+      "record": {
+        "schema": "relux-network-binding-record-v1",
+        "profile_ref": "egress-a",
+        "profile_digest": "sha256:1e5912de9e3459a12b7365f338d385c1c4c7b4a6b622598e17ed4004d7658699",
+        "adapter_identity": {
+          "adapter": "generic-env-v1",
+          "harness": "exec",
+          "build": "",
+          "entrypoint": "codex"
+        },
+        "assurance": "cooperative",
+        "origin": "explicit",
+        "probe": {
+          "tcp": "skipped",
+          "connect": "skipped",
+          "tls": "skipped",
+          "checked_at": "0001-01-01T00:00:00Z"
+        }
+      }
+    },
+    {
+      "id": "R3",
+      "note": "an inherited reference re-resolved on the child's host, with no proxy values in the record",
+      "record": {
+        "schema": "relux-network-binding-record-v1",
+        "profile_ref": "egress-a",
+        "profile_digest": "sha256:1e5912de9e3459a12b7365f338d385c1c4c7b4a6b622598e17ed4004d7658699",
+        "adapter_identity": {
+          "adapter": "generic-env-v1",
+          "harness": "exec",
+          "build": "",
+          "entrypoint": "codex"
+        },
+        "assurance": "cooperative",
+        "origin": "inherited",
+        "probe": {
+          "tcp": "skipped",
+          "connect": "skipped",
+          "tls": "skipped",
+          "checked_at": "0001-01-01T00:00:00Z"
+        }
+      }
+    },
+    {
+      "id": "R4",
+      "note": "managed direct keeps its named reference and digest; all probes skipped",
+      "record": {
+        "schema": "relux-network-binding-record-v1",
+        "profile_ref": "direct",
+        "profile_digest": "sha256:90781b39b78cd17c032c8f75f8936a6364958375b777466cb260336f9bc169e6",
+        "adapter_identity": {
+          "adapter": "generic-env-v1",
+          "harness": "exec",
+          "build": "",
+          "entrypoint": "codex"
+        },
+        "assurance": "cooperative",
+        "origin": "explicit",
+        "probe": {
+          "tcp": "skipped",
+          "connect": "skipped",
+          "tls": "skipped",
+          "checked_at": "0001-01-01T00:00:00Z"
+        }
+      }
+    }
+  ],
+  "resolve": [
+    {
+      "id": "S1",
+      "note": "inherited beats runtime, project and operator defaults; the inherited reference is trimmed",
+      "input": {
+        "explicit": "",
+        "inherited": " egress-a ",
+        "runtime_default": "egress-b",
+        "project_default": "egress-b",
+        "operator_default": "egress-b",
+        "allowed": null,
+        "confirmed": true
+      },
+      "selection": {
+        "profile_ref": "egress-a",
+        "origin": "inherited",
+        "required_assurance": "cooperative"
+      },
+      "digest": "sha256:1e5912de9e3459a12b7365f338d385c1c4c7b4a6b622598e17ed4004d7658699"
+    },
+    {
+      "id": "S2",
+      "note": "explicit beats inherited",
+      "input": {
+        "explicit": "egress-b",
+        "inherited": "egress-a",
+        "runtime_default": "",
+        "project_default": "",
+        "operator_default": "",
+        "allowed": null,
+        "confirmed": true
+      },
+      "selection": {
+        "profile_ref": "egress-b",
+        "origin": "explicit",
+        "required_assurance": "cooperative"
+      },
+      "digest": "sha256:b21dbf86d848612b34057485267e34c659636fd30f1726ee12ea0ff869cfd328"
+    },
+    {
+      "id": "S3",
+      "note": "an inherited reference unknown on the child's host is refused, without falling back",
+      "input": {
+        "explicit": "",
+        "inherited": "missing",
+        "runtime_default": "egress-b",
+        "project_default": "",
+        "operator_default": "",
+        "allowed": null,
+        "confirmed": true
+      },
+      "refusal": "network_profile_unknown"
+    },
+    {
+      "id": "S4",
+      "note": "an inherited reference unconfirmed on the child's host is denied",
+      "input": {
+        "explicit": "",
+        "inherited": "egress-a",
+        "runtime_default": "egress-b",
+        "project_default": "",
+        "operator_default": "",
+        "allowed": null,
+        "confirmed": false
+      },
+      "refusal": "network_profile_denied"
+    },
+    {
+      "id": "S5",
+      "note": "the child's allowed set denies the inherited reference, without falling back",
+      "input": {
+        "explicit": "",
+        "inherited": "egress-a",
+        "runtime_default": "egress-b",
+        "project_default": "",
+        "operator_default": "",
+        "allowed": [
+          "egress-b"
+        ],
+        "confirmed": true
+      },
+      "refusal": "network_profile_denied"
+    },
+    {
+      "id": "S6",
+      "note": "the child's allowed set admits the inherited reference",
+      "input": {
+        "explicit": "",
+        "inherited": "egress-a",
+        "runtime_default": "",
+        "project_default": "",
+        "operator_default": "",
+        "allowed": [
+          "egress-a"
+        ],
+        "confirmed": true
+      },
+      "selection": {
+        "profile_ref": "egress-a",
+        "origin": "inherited",
+        "required_assurance": "cooperative"
+      },
+      "digest": "sha256:1e5912de9e3459a12b7365f338d385c1c4c7b4a6b622598e17ed4004d7658699"
+    },
+    {
+      "id": "S7",
+      "note": "explicit direct overrides a profiled parent within the allowed set",
+      "input": {
+        "explicit": "direct",
+        "inherited": "egress-a",
+        "runtime_default": "",
+        "project_default": "",
+        "operator_default": "",
+        "allowed": [
+          "direct"
+        ],
+        "confirmed": true
+      },
+      "selection": {
+        "profile_ref": "direct",
+        "origin": "explicit",
+        "required_assurance": "cooperative"
+      },
+      "digest": "sha256:90781b39b78cd17c032c8f75f8936a6364958375b777466cb260336f9bc169e6"
+    },
+    {
+      "id": "S8",
+      "note": "direct is a widening entry requiring confirmation",
+      "input": {
+        "explicit": "direct",
+        "inherited": "",
+        "runtime_default": "",
+        "project_default": "",
+        "operator_default": "",
+        "allowed": null,
+        "confirmed": false
+      },
+      "refusal": "network_profile_denied"
+    },
+    {
+      "id": "S9",
+      "note": "direct obeys the host allowed set",
+      "input": {
+        "explicit": "direct",
+        "inherited": "",
+        "runtime_default": "",
+        "project_default": "",
+        "operator_default": "",
+        "allowed": [
+          "egress-a"
+        ],
+        "confirmed": true
+      },
+      "refusal": "network_profile_denied"
+    }
+  ],
+  "digest": [
+    {
+      "id": "D1",
+      "note": "the specification's egress-a",
+      "name": "egress-a",
+      "input": {
+        "kind": "external-http-proxy",
+        "endpoint": "http://127.0.0.1:18081",
+        "bypass_hosts": [
+          "localhost",
+          "127.0.0.1",
+          "::1"
+        ]
+      },
+      "normalized": {
+        "kind": "external-http-proxy",
+        "endpoint": "http://127.0.0.1:18081",
+        "bypass_hosts": [
+          "127.0.0.1",
+          "::1",
+          "localhost"
+        ],
+        "credential_mode": "none"
+      },
+      "canonical": "{\"bypass_hosts\":[\"127.0.0.1\",\"::1\",\"localhost\"],\"credential_mode\":\"none\",\"endpoint\":\"http://127.0.0.1:18081\",\"kind\":\"external-http-proxy\",\"schema\":\"relux-network-profiles-v1\"}",
+      "digest": "sha256:1e5912de9e3459a12b7365f338d385c1c4c7b4a6b622598e17ed4004d7658699",
+      "same_digest_as": [
+        "D3",
+        "D5",
+        "D6",
+        "D8"
+      ]
+    },
+    {
+      "id": "D2",
+      "note": "the specification's egress-b",
+      "name": "egress-b",
+      "input": {
+        "kind": "external-http-proxy",
+        "endpoint": "http://127.0.0.1:18082",
+        "bypass_hosts": [
+          "localhost",
+          "127.0.0.1",
+          "::1"
+        ]
+      },
+      "normalized": {
+        "kind": "external-http-proxy",
+        "endpoint": "http://127.0.0.1:18082",
+        "bypass_hosts": [
+          "127.0.0.1",
+          "::1",
+          "localhost"
+        ],
+        "credential_mode": "none"
+      },
+      "canonical": "{\"bypass_hosts\":[\"127.0.0.1\",\"::1\",\"localhost\"],\"credential_mode\":\"none\",\"endpoint\":\"http://127.0.0.1:18082\",\"kind\":\"external-http-proxy\",\"schema\":\"relux-network-profiles-v1\"}",
+      "digest": "sha256:b21dbf86d848612b34057485267e34c659636fd30f1726ee12ea0ff869cfd328"
+    },
+    {
+      "id": "D3",
+      "note": "normalization: scheme and host case, trailing slash, whitespace, case and duplicates in bypass_hosts",
+      "name": "egress-a-alt",
+      "input": {
+        "kind": "external-http-proxy",
+        "endpoint": "HTTP://127.0.0.1:18081/",
+        "bypass_hosts": [
+          "LocalHost",
+          "::1",
+          " 127.0.0.1 ",
+          "localhost"
+        ]
+      },
+      "normalized": {
+        "kind": "external-http-proxy",
+        "endpoint": "http://127.0.0.1:18081",
+        "bypass_hosts": [
+          "127.0.0.1",
+          "::1",
+          "localhost"
+        ],
+        "credential_mode": "none"
+      },
+      "canonical": "{\"bypass_hosts\":[\"127.0.0.1\",\"::1\",\"localhost\"],\"credential_mode\":\"none\",\"endpoint\":\"http://127.0.0.1:18081\",\"kind\":\"external-http-proxy\",\"schema\":\"relux-network-profiles-v1\"}",
+      "digest": "sha256:1e5912de9e3459a12b7365f338d385c1c4c7b4a6b622598e17ed4004d7658699",
+      "same_digest_as": [
+        "D1",
+        "D5",
+        "D6",
+        "D8"
+      ]
+    },
+    {
+      "id": "D4",
+      "note": "a host-name endpoint, an engine host and a suffix entry in bypass_hosts",
+      "name": "corp",
+      "input": {
+        "kind": "external-http-proxy",
+        "endpoint": "http://proxy.corp.invalid:3128",
+        "bypass_hosts": [
+          "localhost",
+          "127.0.0.1",
+          "::1",
+          "engine.example",
+          ".corp.invalid"
+        ]
+      },
+      "normalized": {
+        "kind": "external-http-proxy",
+        "endpoint": "http://proxy.corp.invalid:3128",
+        "bypass_hosts": [
+          ".corp.invalid",
+          "127.0.0.1",
+          "::1",
+          "engine.example",
+          "localhost"
+        ],
+        "credential_mode": "none"
+      },
+      "canonical": "{\"bypass_hosts\":[\".corp.invalid\",\"127.0.0.1\",\"::1\",\"engine.example\",\"localhost\"],\"credential_mode\":\"none\",\"endpoint\":\"http://proxy.corp.invalid:3128\",\"kind\":\"external-http-proxy\",\"schema\":\"relux-network-profiles-v1\"}",
+      "digest": "sha256:9ec56662f71724539800b8c249dd174deb8247ee180fc3a8511979f2bf51b288"
+    },
+    {
+      "id": "D5",
+      "note": "the profile name and probe_target are not part of the digest",
+      "name": "egress-a-copy",
+      "input": {
+        "kind": "external-http-proxy",
+        "endpoint": "http://127.0.0.1:18081",
+        "bypass_hosts": [
+          "localhost",
+          "127.0.0.1",
+          "::1"
+        ],
+        "probe_target": "probe.invalid:443"
+      },
+      "normalized": {
+        "kind": "external-http-proxy",
+        "endpoint": "http://127.0.0.1:18081",
+        "bypass_hosts": [
+          "127.0.0.1",
+          "::1",
+          "localhost"
+        ],
+        "probe_target": "probe.invalid:443",
+        "credential_mode": "none"
+      },
+      "canonical": "{\"bypass_hosts\":[\"127.0.0.1\",\"::1\",\"localhost\"],\"credential_mode\":\"none\",\"endpoint\":\"http://127.0.0.1:18081\",\"kind\":\"external-http-proxy\",\"schema\":\"relux-network-profiles-v1\"}",
+      "digest": "sha256:1e5912de9e3459a12b7365f338d385c1c4c7b4a6b622598e17ed4004d7658699",
+      "same_digest_as": [
+        "D1",
+        "D3",
+        "D6",
+        "D8"
+      ]
+    },
+    {
+      "id": "D6",
+      "note": "IPv4-mapped IPv6 is unmapped to canonical IPv4",
+      "name": "mapped",
+      "input": {
+        "kind": "external-http-proxy",
+        "endpoint": "http://[::ffff:127.0.0.1]:18081",
+        "bypass_hosts": [
+          "localhost",
+          "127.0.0.1",
+          "::1"
+        ]
+      },
+      "normalized": {
+        "kind": "external-http-proxy",
+        "endpoint": "http://127.0.0.1:18081",
+        "bypass_hosts": [
+          "127.0.0.1",
+          "::1",
+          "localhost"
+        ],
+        "credential_mode": "none"
+      },
+      "canonical": "{\"bypass_hosts\":[\"127.0.0.1\",\"::1\",\"localhost\"],\"credential_mode\":\"none\",\"endpoint\":\"http://127.0.0.1:18081\",\"kind\":\"external-http-proxy\",\"schema\":\"relux-network-profiles-v1\"}",
+      "digest": "sha256:1e5912de9e3459a12b7365f338d385c1c4c7b4a6b622598e17ed4004d7658699",
+      "same_digest_as": [
+        "D1",
+        "D3",
+        "D5",
+        "D8"
+      ]
+    },
+    {
+      "id": "D7",
+      "note": "expanded IPv6 is compressed and bracketed",
+      "name": "ipv6",
+      "input": {
+        "kind": "external-http-proxy",
+        "endpoint": "http://[0:0:0:0:0:0:0:1]:18081",
+        "bypass_hosts": [
+          "localhost",
+          "127.0.0.1",
+          "::1"
+        ]
+      },
+      "normalized": {
+        "kind": "external-http-proxy",
+        "endpoint": "http://[::1]:18081",
+        "bypass_hosts": [
+          "127.0.0.1",
+          "::1",
+          "localhost"
+        ],
+        "credential_mode": "none"
+      },
+      "canonical": "{\"bypass_hosts\":[\"127.0.0.1\",\"::1\",\"localhost\"],\"credential_mode\":\"none\",\"endpoint\":\"http://[::1]:18081\",\"kind\":\"external-http-proxy\",\"schema\":\"relux-network-profiles-v1\"}",
+      "digest": "sha256:211d7f846b669776c5cd02c8fbcfde1534090b58c7263be2d3f790cc817ada1a"
+    },
+    {
+      "id": "D8",
+      "note": "hexadecimal IPv4-mapped IPv6 also becomes IPv4",
+      "name": "mapped-hex",
+      "input": {
+        "kind": "external-http-proxy",
+        "endpoint": "http://[::FFFF:7F00:1]:18081/",
+        "bypass_hosts": [
+          "localhost",
+          "127.0.0.1",
+          "::1"
+        ]
+      },
+      "normalized": {
+        "kind": "external-http-proxy",
+        "endpoint": "http://127.0.0.1:18081",
+        "bypass_hosts": [
+          "127.0.0.1",
+          "::1",
+          "localhost"
+        ],
+        "credential_mode": "none"
+      },
+      "canonical": "{\"bypass_hosts\":[\"127.0.0.1\",\"::1\",\"localhost\"],\"credential_mode\":\"none\",\"endpoint\":\"http://127.0.0.1:18081\",\"kind\":\"external-http-proxy\",\"schema\":\"relux-network-profiles-v1\"}",
+      "digest": "sha256:1e5912de9e3459a12b7365f338d385c1c4c7b4a6b622598e17ed4004d7658699",
+      "same_digest_as": [
+        "D1",
+        "D3",
+        "D5",
+        "D6"
+      ]
+    },
+    {
+      "id": "D9",
+      "note": "named direct: no endpoint, bypass_hosts or probe_target",
+      "name": "direct",
+      "input": {
+        "kind": "direct",
+        "endpoint": "",
+        "bypass_hosts": null
+      },
+      "normalized": {
+        "kind": "direct",
+        "endpoint": "",
+        "bypass_hosts": null,
+        "credential_mode": "none"
+      },
+      "canonical": "{\"credential_mode\":\"none\",\"kind\":\"direct\",\"schema\":\"relux-network-profiles-v1\"}",
+      "digest": "sha256:90781b39b78cd17c032c8f75f8936a6364958375b777466cb260336f9bc169e6"
+    }
+  ],
+  "envpatch": [
+    {
+      "id": "E1",
+      "note": "a clean inherited environment",
+      "profile": "D1",
+      "env": [
+        "PATH=/usr/bin:/bin",
+        "HOME=/home/user"
+      ],
+      "result": [
+        "PATH=/usr/bin:/bin",
+        "HOME=/home/user",
+        "HTTP_PROXY=http://127.0.0.1:18081",
+        "HTTPS_PROXY=http://127.0.0.1:18081",
+        "http_proxy=http://127.0.0.1:18081",
+        "https_proxy=http://127.0.0.1:18081",
+        "NO_PROXY=127.0.0.1,::1,localhost",
+        "no_proxy=127.0.0.1,::1,localhost"
+      ]
+    },
+    {
+      "id": "E2",
+      "note": "lowercase, uppercase and mixed-case conflicts never override the profile",
+      "profile": "D1",
+      "env": [
+        "http_proxy=http://wrong.invalid:3128",
+        "HTTPS_PROXY=http://wrong.invalid:3128",
+        "Http_Proxy=http://odd.invalid:3128",
+        "PATH=/usr/bin"
+      ],
+      "result": [
+        "PATH=/usr/bin",
+        "HTTP_PROXY=http://127.0.0.1:18081",
+        "HTTPS_PROXY=http://127.0.0.1:18081",
+        "http_proxy=http://127.0.0.1:18081",
+        "https_proxy=http://127.0.0.1:18081",
+        "NO_PROXY=127.0.0.1,::1,localhost",
+        "no_proxy=127.0.0.1,::1,localhost"
+      ]
+    },
+    {
+      "id": "E3",
+      "note": "ambient NO_PROXY=* is replaced by the bypass list",
+      "profile": "D1",
+      "env": [
+        "NO_PROXY=*",
+        "no_proxy=*",
+        "PATH=/usr/bin"
+      ],
+      "result": [
+        "PATH=/usr/bin",
+        "HTTP_PROXY=http://127.0.0.1:18081",
+        "HTTPS_PROXY=http://127.0.0.1:18081",
+        "http_proxy=http://127.0.0.1:18081",
+        "https_proxy=http://127.0.0.1:18081",
+        "NO_PROXY=127.0.0.1,::1,localhost",
+        "no_proxy=127.0.0.1,::1,localhost"
+      ]
+    },
+    {
+      "id": "E4",
+      "note": "a conflicting variable present only on the host is removed and not re-set",
+      "profile": "D1",
+      "env": [
+        "ALL_PROXY=socks5://host-only.invalid:1080",
+        "all_proxy=socks5://host-only.invalid:1080",
+        "FTP_PROXY=http://host-only.invalid:3128",
+        "PATH=/usr/bin"
+      ],
+      "result": [
+        "PATH=/usr/bin",
+        "HTTP_PROXY=http://127.0.0.1:18081",
+        "HTTPS_PROXY=http://127.0.0.1:18081",
+        "http_proxy=http://127.0.0.1:18081",
+        "https_proxy=http://127.0.0.1:18081",
+        "NO_PROXY=127.0.0.1,::1,localhost",
+        "no_proxy=127.0.0.1,::1,localhost"
+      ]
+    },
+    {
+      "id": "E5",
+      "note": "idempotence: applying the patch to an already patched environment changes nothing",
+      "profile": "D1",
+      "env": [
+        "PATH=/usr/bin:/bin",
+        "HOME=/home/user",
+        "HTTP_PROXY=http://127.0.0.1:18081",
+        "HTTPS_PROXY=http://127.0.0.1:18081",
+        "http_proxy=http://127.0.0.1:18081",
+        "https_proxy=http://127.0.0.1:18081",
+        "NO_PROXY=127.0.0.1,::1,localhost",
+        "no_proxy=127.0.0.1,::1,localhost"
+      ],
+      "result": [
+        "PATH=/usr/bin:/bin",
+        "HOME=/home/user",
+        "HTTP_PROXY=http://127.0.0.1:18081",
+        "HTTPS_PROXY=http://127.0.0.1:18081",
+        "http_proxy=http://127.0.0.1:18081",
+        "https_proxy=http://127.0.0.1:18081",
+        "NO_PROXY=127.0.0.1,::1,localhost",
+        "no_proxy=127.0.0.1,::1,localhost"
+      ]
+    },
+    {
+      "id": "E6",
+      "note": "the order of untouched entries is kept; an entry without '=' has no name and is kept",
+      "profile": "D1",
+      "env": [
+        "Z=1",
+        "NOEQUALS",
+        "A=2",
+        "https_proxy=http://wrong.invalid:1",
+        "B=3"
+      ],
+      "result": [
+        "Z=1",
+        "NOEQUALS",
+        "A=2",
+        "B=3",
+        "HTTP_PROXY=http://127.0.0.1:18081",
+        "HTTPS_PROXY=http://127.0.0.1:18081",
+        "http_proxy=http://127.0.0.1:18081",
+        "https_proxy=http://127.0.0.1:18081",
+        "NO_PROXY=127.0.0.1,::1,localhost",
+        "no_proxy=127.0.0.1,::1,localhost"
+      ]
+    },
+    {
+      "id": "E7",
+      "note": "unmanaged: no selection at all leaves the environment untouched, ambient proxies included",
+      "profile": "unmanaged",
+      "env": [
+        "HTTPS_PROXY=http://ambient.invalid:3128",
+        "NO_PROXY=*",
+        "PATH=/usr/bin"
+      ],
+      "result": [
+        "HTTPS_PROXY=http://ambient.invalid:3128",
+        "NO_PROXY=*",
+        "PATH=/usr/bin"
+      ]
+    },
+    {
+      "id": "E8",
+      "note": "a parent bound to egress-a spawns a child on egress-b: by reference and re-resolution, never by copying",
+      "profile": "D2",
+      "env": [
+        "PATH=/usr/bin:/bin",
+        "HOME=/home/user",
+        "HTTP_PROXY=http://127.0.0.1:18081",
+        "HTTPS_PROXY=http://127.0.0.1:18081",
+        "http_proxy=http://127.0.0.1:18081",
+        "https_proxy=http://127.0.0.1:18081",
+        "NO_PROXY=127.0.0.1,::1,localhost",
+        "no_proxy=127.0.0.1,::1,localhost"
+      ],
+      "result": [
+        "PATH=/usr/bin:/bin",
+        "HOME=/home/user",
+        "HTTP_PROXY=http://127.0.0.1:18082",
+        "HTTPS_PROXY=http://127.0.0.1:18082",
+        "http_proxy=http://127.0.0.1:18082",
+        "https_proxy=http://127.0.0.1:18082",
+        "NO_PROXY=127.0.0.1,::1,localhost",
+        "no_proxy=127.0.0.1,::1,localhost"
+      ]
+    },
+    {
+      "id": "E9",
+      "note": "direct removes hostile ambient proxies, including mixed case, and sets nothing",
+      "profile": "D9",
+      "env": [
+        "PATH=/usr/bin",
+        "HTTPS_PROXY=http://127.0.0.1:1",
+        "http_proxy=http://127.0.0.1:1",
+        "all_proxy=http://127.0.0.1:1",
+        "NO_PROXY=*",
+        "FtP_PrOxY=http://127.0.0.1:1",
+        "Http_Proxy=http://127.0.0.1:1"
+      ],
+      "result": [
+        "PATH=/usr/bin"
+      ],
+      "patch": {
+        "unset": [
+          "HTTP_PROXY",
+          "HTTPS_PROXY",
+          "ALL_PROXY",
+          "FTP_PROXY",
+          "NO_PROXY",
+          "http_proxy",
+          "https_proxy",
+          "all_proxy",
+          "ftp_proxy",
+          "no_proxy"
+        ],
+        "set": []
+      }
+    },
+    {
+      "id": "E10",
+      "note": "a parent bound to egress-a explicitly selects direct for its child",
+      "profile": "D9",
+      "env": [
+        "PATH=/usr/bin:/bin",
+        "HOME=/home/user",
+        "HTTP_PROXY=http://127.0.0.1:18081",
+        "HTTPS_PROXY=http://127.0.0.1:18081",
+        "http_proxy=http://127.0.0.1:18081",
+        "https_proxy=http://127.0.0.1:18081",
+        "NO_PROXY=127.0.0.1,::1,localhost",
+        "no_proxy=127.0.0.1,::1,localhost"
+      ],
+      "result": [
+        "PATH=/usr/bin:/bin",
+        "HOME=/home/user"
+      ],
+      "patch": {
+        "unset": [
+          "HTTP_PROXY",
+          "HTTPS_PROXY",
+          "ALL_PROXY",
+          "FTP_PROXY",
+          "NO_PROXY",
+          "http_proxy",
+          "https_proxy",
+          "all_proxy",
+          "ftp_proxy",
+          "no_proxy"
+        ],
+        "set": []
+      }
+    }
+  ],
+  "equality": [
+    {
+      "id": "Q1",
+      "note": "equal content under another name is the same binding",
+      "recorded": {
+        "schema": "relux-network-binding-record-v1",
+        "profile_ref": "egress-a",
+        "profile_digest": "sha256:1e5912de9e3459a12b7365f338d385c1c4c7b4a6b622598e17ed4004d7658699",
+        "adapter_identity": {
+          "adapter": "generic-env-v1",
+          "harness": "exec",
+          "build": "",
+          "entrypoint": "codex"
+        },
+        "assurance": "cooperative",
+        "origin": "explicit",
+        "probe": {
+          "tcp": "skipped",
+          "connect": "skipped",
+          "tls": "skipped",
+          "checked_at": "0001-01-01T00:00:00Z"
+        }
+      },
+      "fresh": {
+        "profile_ref": "egress-a-copy",
+        "profile_digest": "sha256:1e5912de9e3459a12b7365f338d385c1c4c7b4a6b622598e17ed4004d7658699",
+        "adapter_identity": {
+          "adapter": "generic-env-v1",
+          "harness": "exec",
+          "build": "",
+          "entrypoint": "codex"
+        },
+        "assurance": "cooperative"
+      },
+      "equal": true,
+      "event": "reattach",
+      "per_session_route": false,
+      "outcome": "reattach"
+    },
+    {
+      "id": "Q2",
+      "note": "changed content under an unchanged name: resume is refused as drift, never re-routed",
+      "recorded": {
+        "schema": "relux-network-binding-record-v1",
+        "profile_ref": "egress-a",
+        "profile_digest": "sha256:1e5912de9e3459a12b7365f338d385c1c4c7b4a6b622598e17ed4004d7658699",
+        "adapter_identity": {
+          "adapter": "generic-env-v1",
+          "harness": "exec",
+          "build": "",
+          "entrypoint": "codex"
+        },
+        "assurance": "cooperative",
+        "origin": "explicit",
+        "probe": {
+          "tcp": "skipped",
+          "connect": "skipped",
+          "tls": "skipped",
+          "checked_at": "0001-01-01T00:00:00Z"
+        }
+      },
+      "fresh": {
+        "profile_ref": "egress-a",
+        "profile_digest": "sha256:b21dbf86d848612b34057485267e34c659636fd30f1726ee12ea0ff869cfd328",
+        "adapter_identity": {
+          "adapter": "generic-env-v1",
+          "harness": "exec",
+          "build": "",
+          "entrypoint": "codex"
+        },
+        "assurance": "cooperative"
+      },
+      "equal": false,
+      "event": "reattach",
+      "per_session_route": true,
+      "refusal": "network_profile_drift"
+    },
+    {
+      "id": "Q3",
+      "note": "a new assignment on a running host bound to another profile, no per-session route",
+      "recorded": {
+        "schema": "relux-network-binding-record-v1",
+        "profile_ref": "egress-a",
+        "profile_digest": "sha256:1e5912de9e3459a12b7365f338d385c1c4c7b4a6b622598e17ed4004d7658699",
+        "adapter_identity": {
+          "adapter": "generic-env-v1",
+          "harness": "exec",
+          "build": "",
+          "entrypoint": "codex"
+        },
+        "assurance": "cooperative",
+        "origin": "explicit",
+        "probe": {
+          "tcp": "skipped",
+          "connect": "skipped",
+          "tls": "skipped",
+          "checked_at": "0001-01-01T00:00:00Z"
+        }
+      },
+      "fresh": {
+        "profile_ref": "egress-b",
+        "profile_digest": "sha256:b21dbf86d848612b34057485267e34c659636fd30f1726ee12ea0ff869cfd328",
+        "adapter_identity": {
+          "adapter": "generic-env-v1",
+          "harness": "exec",
+          "build": "",
+          "entrypoint": "codex"
+        },
+        "assurance": "cooperative"
+      },
+      "equal": false,
+      "event": "new-assignment",
+      "per_session_route": false,
+      "refusal": "network_scope_unsupported"
+    },
+    {
+      "id": "Q4",
+      "note": "the same assignment when the adapter routes per session",
+      "recorded": {
+        "schema": "relux-network-binding-record-v1",
+        "profile_ref": "egress-a",
+        "profile_digest": "sha256:1e5912de9e3459a12b7365f338d385c1c4c7b4a6b622598e17ed4004d7658699",
+        "adapter_identity": {
+          "adapter": "generic-env-v1",
+          "harness": "exec",
+          "build": "",
+          "entrypoint": "codex"
+        },
+        "assurance": "cooperative",
+        "origin": "explicit",
+        "probe": {
+          "tcp": "skipped",
+          "connect": "skipped",
+          "tls": "skipped",
+          "checked_at": "0001-01-01T00:00:00Z"
+        }
+      },
+      "fresh": {
+        "profile_ref": "egress-b",
+        "profile_digest": "sha256:b21dbf86d848612b34057485267e34c659636fd30f1726ee12ea0ff869cfd328",
+        "adapter_identity": {
+          "adapter": "generic-env-v1",
+          "harness": "exec",
+          "build": "",
+          "entrypoint": "codex"
+        },
+        "assurance": "cooperative"
+      },
+      "equal": false,
+      "event": "new-assignment",
+      "per_session_route": true,
+      "outcome": "set-per-session"
+    },
+    {
+      "id": "Q5",
+      "note": "a different harness build is a different launch shape",
+      "recorded": {
+        "schema": "relux-network-binding-record-v1",
+        "profile_ref": "egress-a",
+        "profile_digest": "sha256:1e5912de9e3459a12b7365f338d385c1c4c7b4a6b622598e17ed4004d7658699",
+        "adapter_identity": {
+          "adapter": "generic-env-v1",
+          "harness": "exec",
+          "build": "",
+          "entrypoint": "codex"
+        },
+        "assurance": "cooperative",
+        "origin": "explicit",
+        "probe": {
+          "tcp": "skipped",
+          "connect": "skipped",
+          "tls": "skipped",
+          "checked_at": "0001-01-01T00:00:00Z"
+        }
+      },
+      "fresh": {
+        "profile_ref": "egress-a",
+        "profile_digest": "sha256:1e5912de9e3459a12b7365f338d385c1c4c7b4a6b622598e17ed4004d7658699",
+        "adapter_identity": {
+          "adapter": "generic-env-v1",
+          "harness": "exec",
+          "build": "2.1.0",
+          "entrypoint": "codex"
+        },
+        "assurance": "cooperative"
+      },
+      "equal": false,
+      "event": "reattach",
+      "per_session_route": true,
+      "refusal": "network_scope_unsupported"
+    },
+    {
+      "id": "Q6",
+      "note": "a fresh process never compares: new launch",
+      "recorded": {
+        "schema": "relux-network-binding-record-v1",
+        "profile_ref": "egress-a",
+        "profile_digest": "sha256:1e5912de9e3459a12b7365f338d385c1c4c7b4a6b622598e17ed4004d7658699",
+        "adapter_identity": {
+          "adapter": "generic-env-v1",
+          "harness": "exec",
+          "build": "",
+          "entrypoint": "codex"
+        },
+        "assurance": "cooperative",
+        "origin": "explicit",
+        "probe": {
+          "tcp": "skipped",
+          "connect": "skipped",
+          "tls": "skipped",
+          "checked_at": "0001-01-01T00:00:00Z"
+        }
+      },
+      "fresh": {
+        "profile_ref": "egress-b",
+        "profile_digest": "sha256:b21dbf86d848612b34057485267e34c659636fd30f1726ee12ea0ff869cfd328",
+        "adapter_identity": {
+          "adapter": "generic-env-v1",
+          "harness": "exec",
+          "build": "",
+          "entrypoint": "codex"
+        },
+        "assurance": "cooperative"
+      },
+      "equal": false,
+      "event": "new-launch",
+      "per_session_route": false,
+      "outcome": "launch"
+    },
+    {
+      "id": "Q7",
+      "note": "a different direct name with the same digest is equal",
+      "recorded": {
+        "schema": "relux-network-binding-record-v1",
+        "profile_ref": "direct",
+        "profile_digest": "sha256:90781b39b78cd17c032c8f75f8936a6364958375b777466cb260336f9bc169e6",
+        "adapter_identity": {
+          "adapter": "generic-env-v1",
+          "harness": "exec",
+          "build": "",
+          "entrypoint": "codex"
+        },
+        "assurance": "cooperative",
+        "origin": "explicit",
+        "probe": {
+          "tcp": "skipped",
+          "connect": "skipped",
+          "tls": "skipped",
+          "checked_at": "0001-01-01T00:00:00Z"
+        }
+      },
+      "fresh": {
+        "profile_ref": "other-direct",
+        "profile_digest": "sha256:90781b39b78cd17c032c8f75f8936a6364958375b777466cb260336f9bc169e6",
+        "adapter_identity": {
+          "adapter": "generic-env-v1",
+          "harness": "exec",
+          "build": "",
+          "entrypoint": "codex"
+        },
+        "assurance": "cooperative"
+      },
+      "equal": true,
+      "event": "reattach",
+      "per_session_route": false,
+      "outcome": "reattach"
+    },
+    {
+      "id": "Q8",
+      "note": "resume cannot silently switch from direct to a proxy under the same name",
+      "recorded": {
+        "schema": "relux-network-binding-record-v1",
+        "profile_ref": "direct",
+        "profile_digest": "sha256:90781b39b78cd17c032c8f75f8936a6364958375b777466cb260336f9bc169e6",
+        "adapter_identity": {
+          "adapter": "generic-env-v1",
+          "harness": "exec",
+          "build": "",
+          "entrypoint": "codex"
+        },
+        "assurance": "cooperative",
+        "origin": "explicit",
+        "probe": {
+          "tcp": "skipped",
+          "connect": "skipped",
+          "tls": "skipped",
+          "checked_at": "0001-01-01T00:00:00Z"
+        }
+      },
+      "fresh": {
+        "profile_ref": "direct",
+        "profile_digest": "sha256:1e5912de9e3459a12b7365f338d385c1c4c7b4a6b622598e17ed4004d7658699",
+        "adapter_identity": {
+          "adapter": "generic-env-v1",
+          "harness": "exec",
+          "build": "",
+          "entrypoint": "codex"
+        },
+        "assurance": "cooperative"
+      },
+      "equal": false,
+      "event": "reattach",
+      "per_session_route": false,
+      "refusal": "network_profile_drift"
+    }
+  ],
+  "engine_hosts": [
+    {
+      "id": "G1",
+      "note": "a loopback engine on 127.0.0.1 is covered by the required set",
+      "profile": "D1",
+      "engine_host": "127.0.0.1",
+      "covered": true
+    },
+    {
+      "id": "G2",
+      "note": "brackets and a port are stripped before the exact match",
+      "profile": "D1",
+      "engine_host": "[::1]:11434",
+      "covered": true
+    },
+    {
+      "id": "G3",
+      "note": "an engine host absent from bypass_hosts is a configuration conflict",
+      "profile": "D1",
+      "engine_host": "engine.example",
+      "covered": false,
+      "refusal": "network_configuration_conflict"
+    },
+    {
+      "id": "G4",
+      "note": "coverage is case-insensitive",
+      "profile": "D4",
+      "engine_host": "ENGINE.EXAMPLE",
+      "covered": true
+    },
+    {
+      "id": "G5",
+      "note": "a suffix entry does not cover by inclusion; coverage is exact",
+      "profile": "D4",
+      "engine_host": "api.corp.invalid",
+      "covered": false,
+      "refusal": "network_configuration_conflict"
+    }
+  ]
+}
