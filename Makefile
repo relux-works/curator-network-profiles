@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 # curator-network-profiles: library + provider CLI `curator-network`.
 # Every target is loopback-only; nothing here touches the real network
 # beyond the Go module proxy (`go run …@version` for actionlint).

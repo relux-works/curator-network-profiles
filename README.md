@@ -77,3 +77,11 @@ The tests bind only `127.0.0.1`, resolve no DNS names, run with a temporary HOME
 ## License
 
 Licensed under the [Apache License 2.0](LICENSE). See [NOTICE](NOTICE) for attribution.
+
+"Curator", "Apiary", "waggle" and "Relux" are names of RELUX WORKS LLC projects.
+You may say accurately that your software uses this library or implements its
+specification. Do not use these names in your product's name, and do not suggest
+that we certify or endorse your product, without our written permission.
+Contact: licence@relux.works.
+
+Security: see [SECURITY.md](SECURITY.md).

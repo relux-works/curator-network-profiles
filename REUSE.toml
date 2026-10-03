@@ -1,0 +1,13 @@
+version = 1
+
+[[annotations]]
+path = ["*.md", "docs/**", "spec/**", "testdata/**", "go.mod", "go.sum", ".gitignore", "LICENSE", "NOTICE", "REUSE.toml"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 Ivan Oparin, Relux Works"
+SPDX-License-Identifier = "Apache-2.0"
+
+[[annotations]]
+path = ["**/*.go", "scripts/**", "Makefile", ".github/workflows/**"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 Ivan Oparin, Relux Works"
+SPDX-License-Identifier = "Apache-2.0"
