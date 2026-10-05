@@ -69,7 +69,7 @@ Every process owner applies the binding immediately before spawn on every proces
 
 ### N3 Data model
 
-`NetworkSelection` (what the caller asked): `profile_ref`, `origin ∈ {explicit, inherited, runtime-default, project-default, operator-default}`, `required_assurance ∈ {cooperative, enforced}`.
+`NetworkSelection` (what the caller asked): `profile_ref`, `origin ∈ {explicit, inherited, runtime-default, profile-binding, project-default, operator-default}`, `required_assurance ∈ {cooperative, enforced}`.
 
 `inherited` means the process owner supplies the parent's resolved reference persisted at reservation, for fresh resolution on the child's host; the library never discovers it from the environment or proxy values.
 
@@ -104,9 +104,15 @@ The file is edited through `curator network add|remove` or by hand. Adding or ch
 
 A `runtimes.toml` entry (LP-D2) MAY carry `network = "<name>"` as the default for that binding, and project configuration MAY carry `spawn.network.default = "<name>"` (decided 2026-09-22 after review): both are stable profile ids resolved on each machine and refused as `network_profile_unknown` where the machine has no such profile. An explicit `--network` overrides both.
 
+Profile bindings come only from `[bindings.profiles]` in the destination
+operator catalog (`~/.curator/network.toml`), using the exact
+`resolve.Request.CuratorProfile` identifier. Project files, Curator profile
+files and environment selectors are not binding sources. See the normative
+[appendix §3.7](contract-appendix.md#37-selection-and-inheritance-spec-n3-n4-n8).
+
 ### N4 Precedence and assurance
 
-Host locks and the allowed profile set → explicit selection → inherited selection → runtime-binding default → project default → operator default (the machine's own default entry in `network.toml`). No selection at all keeps today's behaviour, reported as `unmanaged`, never as "direct". An explicit choice of a named direct profile is managed, authorized through the allowed set, confirmed, and recorded with its actual `profile_ref` and digest. A request for `enforced` on a machine that only has a cooperative backend is refused; the first release publishes `assurance = cooperative`.
+Host locks and the allowed profile set → explicit selection → inherited selection → runtime-binding default → operator profile binding (`profile-binding`) → project default → operator default (the machine's own default entry in `network.toml`). No selection at all keeps today's behaviour, reported as `unmanaged`, never as "direct". An explicit choice of a named direct profile is managed, authorized through the allowed set, confirmed, and recorded with its actual `profile_ref` and digest. A request for `enforced` on a machine that only has a cooperative backend is refused; the first release publishes `assurance = cooperative`.
 
 ### N5 Applying the patch without side effects
 

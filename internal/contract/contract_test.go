@@ -64,13 +64,25 @@ func TestVectorSetShape(t *testing.T) {
 	if strings.Join(byID["D1"].SameAs, ",") != "D3,D5,D6,D8" {
 		t.Fatalf("D1 same_digest_as = %v", byID["D1"].SameAs)
 	}
-	if len(set.Record) != 4 || set.Record[2].Record.Origin != "inherited" || len(set.Resolve) != 9 {
+	if len(set.Record) != 5 || set.Record[2].Record.Origin != "inherited" || len(set.Resolve) != 17 {
 		t.Fatalf("inherited vector set is incomplete: %d records, %d resolves", len(set.Record), len(set.Resolve))
+	}
+	if set.Record[4].Record.Origin != "profile-binding" || set.Record[4].Record.ProfileDigest != byID["D1"].Digest {
+		t.Fatal("profile binding record vector is incomplete")
 	}
 	for _, v := range set.Resolve {
 		switch v.ID {
 		case "S1", "S6":
 			if v.Selection == nil || v.Selection.Origin != "inherited" || v.Selection.ProfileRef != "egress-a" || v.Digest != byID["D1"].Digest || v.Refusal != "" {
+				t.Fatalf("%s = %+v", v.ID, v)
+			}
+		case "S10":
+			if v.Selection == nil || v.Selection.Origin != "profile-binding" || v.Selection.ProfileRef != "egress-a" || v.Digest != byID["D1"].Digest || v.Refusal != "" {
+				t.Fatalf("%s = %+v", v.ID, v)
+			}
+		case "S11", "S12", "S14", "S15":
+			origin := map[string]string{"S11": "runtime-default", "S12": "inherited", "S14": "project-default", "S15": "project-default"}[v.ID]
+			if v.Selection == nil || string(v.Selection.Origin) != origin || v.Selection.ProfileRef != "egress-b" || v.Digest != byID["D2"].Digest || v.Refusal != "" {
 				t.Fatalf("%s = %+v", v.ID, v)
 			}
 		case "S2":
@@ -81,11 +93,11 @@ func TestVectorSetShape(t *testing.T) {
 			if v.Selection == nil || v.Selection.Origin != "explicit" || v.Selection.ProfileRef != "direct" || v.Digest != byID["D9"].Digest || v.Refusal != "" {
 				t.Fatalf("S7 = %+v", v)
 			}
-		case "S3":
+		case "S3", "S13":
 			if v.Refusal != refusal.CodeProfileUnknown || v.Selection != nil || v.Digest != "" {
 				t.Fatalf("S3 = %+v", v)
 			}
-		case "S4", "S5", "S8", "S9":
+		case "S4", "S5", "S8", "S9", "S16", "S17":
 			if v.Refusal != refusal.CodeProfileDenied || v.Selection != nil || v.Digest != "" {
 				t.Fatalf("%s = %+v", v.ID, v)
 			}

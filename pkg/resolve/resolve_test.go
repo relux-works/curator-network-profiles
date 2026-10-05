@@ -23,6 +23,10 @@ func TestResolveEveryPrecedencePair(t *testing.T) {
 		{resolve.OriginExplicit, func(r *resolve.Request, _ *netprofile.File, ref string) { r.Explicit = ref }},
 		{resolve.OriginInherited, func(r *resolve.Request, _ *netprofile.File, ref string) { r.Inherited = ref }},
 		{resolve.OriginRuntimeDefault, func(r *resolve.Request, _ *netprofile.File, ref string) { r.RuntimeDefault = ref }},
+		{resolve.OriginProfileBinding, func(r *resolve.Request, f *netprofile.File, ref string) {
+			r.CuratorProfile = "work"
+			f.Bindings.Profiles = map[string]string{"work": ref}
+		}},
 		{resolve.OriginProjectDefault, func(r *resolve.Request, _ *netprofile.File, ref string) { r.ProjectDefault = ref }},
 		{resolve.OriginOperatorDefault, func(_ *resolve.Request, f *netprofile.File, ref string) { f.Default = ref }},
 	}

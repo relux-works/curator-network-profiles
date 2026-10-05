@@ -40,6 +40,8 @@ const (
 	SchemaShow    = "curator-network-show-v1"
 	SchemaAdd     = "curator-network-add-v1"
 	SchemaRemove  = "curator-network-remove-v1"
+	SchemaBind    = "curator-network-bind-v1"
+	SchemaUnbind  = "curator-network-unbind-v1"
 	SchemaCheck   = "curator-network-check-v1"
 	SchemaConfirm = "curator-network-confirm-v1"
 	SchemaExec    = "curator-network-exec-v1"
@@ -58,7 +60,7 @@ const (
 type Deps struct {
 	// Env is the inherited environment; HOME and PATH are read from it.
 	Env []string
-	// Stdin is read by `confirm` only.
+	// Stdin is read by operator confirmation prompts.
 	Stdin io.Reader
 	// Stdout and Stderr receive human or JSON output and diagnostics.
 	Stdout io.Writer
@@ -81,6 +83,8 @@ const Usage = `usage: curator-network [--json] <verb> [arguments]
   add <name> --direct
   add <name> --endpoint http://host:port    [--bypass h1,h2] [--probe-target host:port]
   remove <name>                             narrowing; applies immediately
+  bind <curator-profile> <network>           operator terminal only
+  unbind <curator-profile>                   operator terminal only
   check [<name>|--all] [--probe]            [--target host:port] [--timeout 3s]
   confirm [<name>...]                       operator terminal only
   exec <name> [--preflight-timeout 3s] [--dry-run] -- <command> [arguments...]
@@ -165,6 +169,10 @@ func Run(ctx context.Context, args []string, deps Deps) int {
 		return a.add(rest)
 	case "remove":
 		return a.remove(rest)
+	case "bind":
+		return a.editBinding(rest, false)
+	case "unbind":
+		return a.editBinding(rest, true)
 	case "check":
 		return a.check(rest)
 	case "confirm":

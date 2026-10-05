@@ -87,6 +87,12 @@ type File struct {
 	Schema   string
 	Default  string
 	Networks map[string]Profile
+	Bindings Bindings
+}
+
+// Bindings are operator-local defaults. Path bindings are reserved and unsupported.
+type Bindings struct {
+	Profiles map[string]string `json:"profiles"`
 }
 
 // Names returns the profile names in byte order.
@@ -128,6 +134,40 @@ func ValidateName(name string) error {
 		return nil
 	}
 	return refusal.New(refusal.CodeProfileInvalid, name, "name must match ^[a-z0-9][a-z0-9._-]{0,62}$")
+}
+
+// asciiLower folds ASCII A-Z to a-z and leaves every other byte unchanged.
+// It never applies Unicode case mapping, so lookalikes stay distinct.
+func asciiLower(s string) string {
+	lower := make([]byte, len(s))
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if c >= 'A' && c <= 'Z' {
+			c += 'a' - 'A'
+		}
+		lower[i] = c
+	}
+	return string(lower)
+}
+
+// asciiFoldEqual reports whether a and b match under ASCII-only folding.
+func asciiFoldEqual(a, b string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := 0; i < len(a); i++ {
+		ca, cb := a[i], b[i]
+		if ca >= 'A' && ca <= 'Z' {
+			ca += 'a' - 'A'
+		}
+		if cb >= 'A' && cb <= 'Z' {
+			cb += 'a' - 'A'
+		}
+		if ca != cb {
+			return false
+		}
+	}
+	return true
 }
 
 // Normalize validates and normalizes one profile. It does not insert the
@@ -430,6 +470,12 @@ type rawFile struct {
 	Schema   string                `toml:"schema"`
 	Default  string                `toml:"default"`
 	Networks map[string]rawProfile `toml:"networks"`
+	Bindings rawBindings           `toml:"bindings"`
+}
+
+type rawBindings struct {
+	Profiles map[string]string `toml:"profiles"`
+	Paths    any               `toml:"paths"`
 }
 
 type rawProfile struct {
@@ -445,6 +491,30 @@ type rawProfile struct {
 // content problem is network_profile_invalid with the profile name or
 // the file basename as subject.
 func Parse(data []byte) (*File, error) {
+	// Struct decoding folds key case (ASCII folding for ASCII keys,
+	// Unicode lowercasing for non-ASCII keys). Check the binding
+	// namespace through a map first, so aliases cannot merge or hide
+	// invalid targets. Every spelling the typed decoder could recognize
+	// as bindings must be exactly "bindings".
+	var document map[string]any
+	if err := toml.Unmarshal(data, &document); err != nil {
+		return nil, classifyDecodeError(err)
+	}
+	for key, value := range document {
+		if key != "bindings" && !asciiFoldEqual(key, "bindings") && strings.ToLower(key) != "bindings" {
+			continue
+		}
+		if key != "bindings" {
+			return nil, refusal.New(refusal.CodeProfileInvalid, FileName, "binding namespace must use exact lowercase keys")
+		}
+		if table, ok := value.(map[string]any); ok {
+			for field := range table {
+				if field != "profiles" && field != "paths" {
+					return nil, refusal.New(refusal.CodeProfileInvalid, FileName, "unknown key in bindings")
+				}
+			}
+		}
+	}
 	var raw rawFile
 	dec := toml.NewDecoder(bytes.NewReader(data)).DisallowUnknownFields()
 	if err := dec.Decode(&raw); err != nil {
@@ -461,6 +531,33 @@ func Parse(data []byte) (*File, error) {
 		return nil, fileInvalid("schema must be \"" + Schema + "\"")
 	}
 	f := &File{Schema: raw.Schema, Default: strings.TrimSpace(raw.Default), Networks: map[string]Profile{}}
+	if raw.Bindings.Paths != nil {
+		return nil, refusal.New(refusal.CodeScopeUnsupported, FileName, "[bindings.paths] is reserved and unsupported")
+	}
+	names := make([]string, 0, len(raw.Bindings.Profiles))
+	for name := range raw.Bindings.Profiles {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	seen := make(map[string]string, len(names))
+	for _, name := range names {
+		folded := asciiLower(name)
+		if first, ok := seen[folded]; ok && first != name {
+			return nil, refusal.New(refusal.CodeProfileInvalid, FileName, "conflicting duplicate binding")
+		}
+		if _, ok := seen[folded]; !ok {
+			seen[folded] = name
+		}
+	}
+	for _, name := range names {
+		if err := ValidateName(name); err != nil {
+			return nil, err
+		}
+		if err := ValidateName(raw.Bindings.Profiles[name]); err != nil {
+			return nil, err
+		}
+	}
+	f.Bindings.Profiles = raw.Bindings.Profiles
 	for _, name := range sortedKeys(raw.Networks) {
 		rp := raw.Networks[name]
 		// Pointers retain field presence: even an empty forbidden key is invalid.
@@ -518,13 +615,35 @@ func classifyDecodeError(err error) error {
 	if errors.As(err, &de) {
 		row, _ := de.Position()
 		if key := de.Key(); len(key) > 0 {
+			// Duplicate errors may carry only a leaf key. Never copy arbitrary
+			// decoder metadata, even when the owning table is unavailable.
 			return refusal.New(refusal.CodeProfileInvalid, subjectForKey(key),
-				fmt.Sprintf("%s: wrong type", strings.Join(key, ".")))
+				decodeFieldLabel(key)+": wrong type")
 		}
 		return refusal.New(refusal.CodeFileUnreadable, FileName,
 			fmt.Sprintf("syntax error at line %d", row))
 	}
 	return refusal.New(refusal.CodeFileUnreadable, FileName, "cannot parse")
+}
+
+// decodeFieldLabel exposes only known fields and validated identifiers.
+func decodeFieldLabel(key toml.Key) string {
+	if asciiFoldEqual(key[0], "bindings") || strings.ToLower(key[0]) == "bindings" {
+		return "bindings"
+	}
+	if len(key) == 1 {
+		switch key[0] {
+		case "schema", "default", "networks":
+			return key[0]
+		}
+	}
+	if len(key) == 3 && key[0] == "networks" && nameRE.MatchString(key[1]) {
+		switch key[2] {
+		case "kind", "endpoint", "bypass_hosts", "probe_target":
+			return "networks." + key[1] + "." + key[2]
+		}
+	}
+	return "catalog field"
 }
 
 // subjectForKey names the profile a key belongs to, else the file.

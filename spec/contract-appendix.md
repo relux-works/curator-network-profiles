@@ -784,9 +784,9 @@ What run manifests and logs keep:
  assurance, origin, probe{tcp, connect, tls, checked_at}}
 ```
 
-`origin` is `explicit`, `inherited`, `runtime-default`, `project-default` or
+`origin` is `explicit`, `inherited`, `runtime-default`, `profile-binding`, `project-default` or
 `operator-default`. N4 precedence is host locks / allowed set → explicit →
-inherited → runtime-default → project-default → operator-default.
+inherited → runtime-default → profile-binding → project-default → operator-default.
 An inherited reference is supplied by the process owner, persisted from the
 parent at reservation, and re-resolved on the child's host. It MUST NOT be
 discovered from the environment or proxy values. `schema` MUST be `relux-network-binding-record-v1`
@@ -903,6 +903,34 @@ Generated Record vectors (R1: observed; R2: unobserved; R3: inherited; R4: direc
     },
     "assurance": "cooperative",
     "origin": "explicit",
+    "probe": {
+      "tcp": "skipped",
+      "connect": "skipped",
+      "tls": "skipped",
+      "checked_at": "0001-01-01T00:00:00Z"
+    }
+  }
+}
+```
+
+**R5** — an operator-local profile binding retains its origin without changing the digest or record shape.
+
+```json vector=R5
+{
+  "id": "R5",
+  "note": "an operator-local profile binding retains its origin without changing the digest or record shape",
+  "record": {
+    "schema": "relux-network-binding-record-v1",
+    "profile_ref": "egress-a",
+    "profile_digest": "sha256:1e5912de9e3459a12b7365f338d385c1c4c7b4a6b622598e17ed4004d7658699",
+    "adapter_identity": {
+      "adapter": "generic-env-v1",
+      "harness": "exec",
+      "build": "",
+      "entrypoint": "codex"
+    },
+    "assurance": "cooperative",
+    "origin": "profile-binding",
     "probe": {
       "tcp": "skipped",
       "connect": "skipped",
@@ -1279,10 +1307,44 @@ Missing or denied profiles are decided by resolve before this table.
 
 ### 3.7 Selection and inheritance (spec N3, N4, N8)
 
+The binding namespace uses exact lowercase `bindings`, `profiles` and reserved
+`paths` keys. Case aliases and duplicate mappings are refused without merging;
+quoted or escaped spellings must decode to these exact keys. Decode diagnostics
+never echo unvalidated key metadata, including leaf-only duplicate errors.
+See [the migration notes](../README.md#upgrading-for-operator-profile-bindings)
+for source, strict CLI JSON decoder and hosted-carrier compatibility.
+
+
 Host locks / allowed set constrain every selected reference. The reference
-precedence is explicit → inherited → runtime-default → project-default →
-operator-default. Empty or whitespace-only references do not select; all
+precedence is explicit → inherited → runtime-default → profile-binding →
+project-default → operator-default. Empty or whitespace-only references do not select; all
 selected references are trimmed before lookup. No selection is unmanaged.
+
+An optional Curator profile name selects an operator-local default from
+`[bindings.profiles]` in `~/.curator/network.toml`. Keys and network targets
+MUST follow the profile identifier grammar; unknown keys are refused.
+`[bindings.paths]` is reserved and MUST refuse with `network_scope_unsupported`,
+even when empty. Bindings MUST NOT be read from a project or a Curator profile.
+An omitted or unbound Curator profile adds no candidate. A selected binding to
+an unknown network MUST refuse `network_profile_unknown` without fallback;
+confirmation, assurance and allowed-set checks still apply. Bindings do not
+change profile digests or binding equality. R5 shows the `profile-binding`
+origin in a manifest-safe Record.
+
+CLI `bind <curator-profile> <network>` and `unbind <curator-profile>` MUST use
+the existing confirmation guard (no agent session, terminal stdin) and require
+`yes` before writing. They prompt before acquiring the catalog edit lock,
+recheck catalog bytes under that lock, and refuse intervening edits. Catalog
+and backup writes use the existing atomic writer; the digest-confirmation
+ledger is unchanged. Binding a target does not confirm its digest. Removing
+a binding can expose a lower-priority default and requires the same guard.
+CLI `list` includes all bindings; `show <network>` includes bindings to that
+network. Both JSON documents add `bindings: {profiles: {...}}`; bind/unbind
+success documents use `curator-network-bind-v1` / `curator-network-unbind-v1`,
+`ok`, `curator_profile`, and optional `network` / `previous` strings. Unknown
+bind targets and absent unbind entries use `network_profile_unknown`.
+Unusual TOML edit layouts are refused with `network_profile_invalid` and a
+manual-edit instruction, as with network profile removal.
 
 The caller MUST supply the inherited reference it persisted from the parent
 at reservation. The library MUST re-resolve it on the child's host, using
@@ -1477,6 +1539,216 @@ shows the inherited origin in a manifest-safe Record.
     "operator_default": "",
     "allowed": [
       "egress-a"
+    ],
+    "confirmed": true
+  },
+  "refusal": "network_profile_denied"
+}
+```
+
+**S10** — profile binding beats project and operator defaults.
+
+```json vector=S10
+{
+  "id": "S10",
+  "note": "profile binding beats project and operator defaults",
+  "input": {
+    "curator_profile": "work",
+    "profile_bindings": {
+      "work": "egress-a"
+    },
+    "explicit": "",
+    "inherited": "",
+    "runtime_default": "",
+    "project_default": "egress-b",
+    "operator_default": "egress-b",
+    "allowed": null,
+    "confirmed": true
+  },
+  "selection": {
+    "profile_ref": "egress-a",
+    "origin": "profile-binding",
+    "required_assurance": "cooperative"
+  },
+  "digest": "sha256:1e5912de9e3459a12b7365f338d385c1c4c7b4a6b622598e17ed4004d7658699"
+}
+```
+
+**S11** — runtime default beats profile binding.
+
+```json vector=S11
+{
+  "id": "S11",
+  "note": "runtime default beats profile binding",
+  "input": {
+    "curator_profile": "work",
+    "profile_bindings": {
+      "work": "egress-a"
+    },
+    "explicit": "",
+    "inherited": "",
+    "runtime_default": "egress-b",
+    "project_default": "",
+    "operator_default": "",
+    "allowed": null,
+    "confirmed": true
+  },
+  "selection": {
+    "profile_ref": "egress-b",
+    "origin": "runtime-default",
+    "required_assurance": "cooperative"
+  },
+  "digest": "sha256:b21dbf86d848612b34057485267e34c659636fd30f1726ee12ea0ff869cfd328"
+}
+```
+
+**S12** — inherited reference beats profile binding.
+
+```json vector=S12
+{
+  "id": "S12",
+  "note": "inherited reference beats profile binding",
+  "input": {
+    "curator_profile": "work",
+    "profile_bindings": {
+      "work": "egress-a"
+    },
+    "explicit": "",
+    "inherited": "egress-b",
+    "runtime_default": "",
+    "project_default": "",
+    "operator_default": "",
+    "allowed": null,
+    "confirmed": true
+  },
+  "selection": {
+    "profile_ref": "egress-b",
+    "origin": "inherited",
+    "required_assurance": "cooperative"
+  },
+  "digest": "sha256:b21dbf86d848612b34057485267e34c659636fd30f1726ee12ea0ff869cfd328"
+}
+```
+
+**S13** — an unknown profile binding target is refused without falling back.
+
+```json vector=S13
+{
+  "id": "S13",
+  "note": "an unknown profile binding target is refused without falling back",
+  "input": {
+    "curator_profile": "work",
+    "profile_bindings": {
+      "work": "missing"
+    },
+    "explicit": "",
+    "inherited": "",
+    "runtime_default": "",
+    "project_default": "egress-b",
+    "operator_default": "",
+    "allowed": null,
+    "confirmed": true
+  },
+  "refusal": "network_profile_unknown"
+}
+```
+
+**S14** — an omitted Curator profile ignores bindings.
+
+```json vector=S14
+{
+  "id": "S14",
+  "note": "an omitted Curator profile ignores bindings",
+  "input": {
+    "profile_bindings": {
+      "work": "egress-a"
+    },
+    "explicit": "",
+    "inherited": "",
+    "runtime_default": "",
+    "project_default": "egress-b",
+    "operator_default": "",
+    "allowed": null,
+    "confirmed": true
+  },
+  "selection": {
+    "profile_ref": "egress-b",
+    "origin": "project-default",
+    "required_assurance": "cooperative"
+  },
+  "digest": "sha256:b21dbf86d848612b34057485267e34c659636fd30f1726ee12ea0ff869cfd328"
+}
+```
+
+**S15** — a profile without a binding uses the project default.
+
+```json vector=S15
+{
+  "id": "S15",
+  "note": "a profile without a binding uses the project default",
+  "input": {
+    "curator_profile": "other",
+    "profile_bindings": {
+      "work": "egress-a"
+    },
+    "explicit": "",
+    "inherited": "",
+    "runtime_default": "",
+    "project_default": "egress-b",
+    "operator_default": "",
+    "allowed": null,
+    "confirmed": true
+  },
+  "selection": {
+    "profile_ref": "egress-b",
+    "origin": "project-default",
+    "required_assurance": "cooperative"
+  },
+  "digest": "sha256:b21dbf86d848612b34057485267e34c659636fd30f1726ee12ea0ff869cfd328"
+}
+```
+
+**S16** — a profile binding still requires digest confirmation.
+
+```json vector=S16
+{
+  "id": "S16",
+  "note": "a profile binding still requires digest confirmation",
+  "input": {
+    "curator_profile": "work",
+    "profile_bindings": {
+      "work": "egress-a"
+    },
+    "explicit": "",
+    "inherited": "",
+    "runtime_default": "",
+    "project_default": "",
+    "operator_default": "",
+    "allowed": null,
+    "confirmed": false
+  },
+  "refusal": "network_profile_denied"
+}
+```
+
+**S17** — a profile binding obeys the host allowed set.
+
+```json vector=S17
+{
+  "id": "S17",
+  "note": "a profile binding obeys the host allowed set",
+  "input": {
+    "curator_profile": "work",
+    "profile_bindings": {
+      "work": "egress-a"
+    },
+    "explicit": "",
+    "inherited": "",
+    "runtime_default": "",
+    "project_default": "",
+    "operator_default": "",
+    "allowed": [
+      "egress-b"
     ],
     "confirmed": true
   },

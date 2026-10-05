@@ -67,7 +67,7 @@ type Record struct {
 
 // Record builds the manifest record of b with the selection origin and
 // the probe outcome of this launch. Origins are explicit, inherited,
-// runtime-default, project-default and operator-default (spec N3).
+// runtime-default, profile-binding, project-default and operator-default (spec N3).
 func (b Binding) Record(origin string, probe *ProbeRecord) Record {
 	pr := ProbeRecord{TCP: "skipped", Connect: "skipped", TLS: "skipped"}
 	if probe != nil {

@@ -143,13 +143,20 @@ func (l *Ledger) Names() []string {
 // Guard refuses confirmation inside an agent session (any marker set in
 // env, whatever its value) or without a terminal on stdin.
 func Guard(env []string, isTerminal bool) error {
+	return GuardCommand(env, isTerminal, "confirm")
+}
+
+// GuardCommand applies the operator-presence guard with verb-specific recovery.
+// command is a CLI verb supplied by the caller, never an operator operand.
+func GuardCommand(env []string, isTerminal bool, command string) error {
+	remedy := "run `curator network " + command + "` from an operator terminal"
 	for _, m := range Markers {
 		if envutil.Has(env, m) {
-			return refusal.New(refusal.CodeConfirmRefused, m, "agent session marker is set; run `curator network confirm` from an operator terminal")
+			return refusal.New(refusal.CodeConfirmRefused, m, "agent session marker is set; "+remedy)
 		}
 	}
 	if !isTerminal {
-		return refusal.New(refusal.CodeConfirmRefused, "stdin", "not a terminal; run `curator network confirm` from an operator terminal")
+		return refusal.New(refusal.CodeConfirmRefused, "stdin", "not a terminal; "+remedy)
 	}
 	return nil
 }

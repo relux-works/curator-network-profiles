@@ -54,6 +54,20 @@ func TestCarrierCanonical(t *testing.T) {
 	}
 }
 
+func TestCarrierV1RefusesProfileBindingOrigin(t *testing.T) {
+	c := carrier()
+	data, err := hosted.EncodeCarrier(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c.Origin = hosted.Origin("profile-binding")
+	_, err = hosted.EncodeCarrier(c)
+	requireCode(t, err, refusal.CodeConfigurationConflict)
+	data = []byte(strings.Replace(string(data), `"origin":"explicit"`, `"origin":"profile-binding"`, 1))
+	_, err = hosted.DecodeCarrier(data)
+	requireCode(t, err, refusal.CodeConfigurationConflict)
+}
+
 func TestNestedCarrierDecoder(t *testing.T) {
 	var payload struct {
 		Network *hosted.Carrier `json:"network"`

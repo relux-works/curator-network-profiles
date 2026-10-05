@@ -21,6 +21,7 @@ const (
 	OriginExplicit        Origin = "explicit"
 	OriginInherited       Origin = "inherited"
 	OriginRuntimeDefault  Origin = "runtime-default"
+	OriginProfileBinding  Origin = "profile-binding"
 	OriginProjectDefault  Origin = "project-default"
 	OriginOperatorDefault Origin = "operator-default"
 )
@@ -44,6 +45,9 @@ type Request struct {
 	Inherited string
 	// RuntimeDefault is the runtime binding's `network` (LP-D2).
 	RuntimeDefault string
+	// CuratorProfile is the optional profile name to look up in the operator's
+	// [bindings.profiles]. The binding is never supplied by a project or profile.
+	CuratorProfile string
 	// ProjectDefault is the project's `spawn.network.default`.
 	ProjectDefault string
 	// RequiredAssurance is cooperative when empty. Slice A refuses
@@ -83,7 +87,7 @@ type Result struct {
 }
 
 // Select applies the N4 reference precedence only: explicit → inherited →
-// runtime default → project default → operator default. Resolve enforces
+// runtime default → profile binding → project default → operator default. Resolve enforces
 // host locks and the allowed set on the selected reference. It reports
 // ok=false when nothing selects a profile. It is the lookup a router's
 // CandidateResolver needs (spec N13) and performs no validation.
@@ -99,6 +103,7 @@ func Select(file *netprofile.File, req Request) (Selection, bool) {
 		{req.Explicit, OriginExplicit},
 		{req.Inherited, OriginInherited},
 		{req.RuntimeDefault, OriginRuntimeDefault},
+		{profileBinding(file, req.CuratorProfile), OriginProfileBinding},
 		{req.ProjectDefault, OriginProjectDefault},
 		{fileDefault(file), OriginOperatorDefault},
 	} {
@@ -107,6 +112,13 @@ func Select(file *netprofile.File, req Request) (Selection, bool) {
 		}
 	}
 	return Selection{RequiredAssurance: assurance}, false
+}
+
+func profileBinding(file *netprofile.File, name string) string {
+	if file == nil || name == "" {
+		return ""
+	}
+	return file.Bindings.Profiles[name]
 }
 
 func fileDefault(file *netprofile.File) string {

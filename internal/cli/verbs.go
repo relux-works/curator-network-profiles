@@ -9,6 +9,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 	"text/tabwriter"
 	"time"
@@ -86,15 +87,17 @@ func (a *app) list(args []string) int {
 	}
 	if a.json {
 		a.emit(struct {
-			Schema   string `json:"schema"`
-			OK       bool   `json:"ok"`
-			Default  string `json:"default"`
-			Profiles []row  `json:"profiles"`
-		}{SchemaList, true, def, rows})
+			Schema   string              `json:"schema"`
+			OK       bool                `json:"ok"`
+			Default  string              `json:"default"`
+			Profiles []row               `json:"profiles"`
+			Bindings netprofile.Bindings `json:"bindings"`
+		}{SchemaList, true, def, rows, bindingsOf(cat.File, "")})
 		return ExitOK
 	}
 	if len(rows) == 0 {
 		fmt.Fprintln(a.deps.Stdout, "no network profiles in ~/.curator/network.toml")
+		a.printBindings(bindingsOf(cat.File, ""))
 		return ExitOK
 	}
 	w := tabwriter.NewWriter(a.deps.Stdout, 0, 0, 2, ' ', 0)
@@ -103,7 +106,35 @@ func (a *app) list(args []string) int {
 		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n", r.Name, r.Kind, r.Endpoint, netprofile.ShortDigest(r.Digest), yesNo(r.Confirmed), mark(r.Default))
 	}
 	_ = w.Flush()
+	a.printBindings(bindingsOf(cat.File, ""))
 	return ExitOK
+}
+
+func bindingsOf(file *netprofile.File, network string) netprofile.Bindings {
+	b := netprofile.Bindings{Profiles: map[string]string{}}
+	if file != nil {
+		for profile, target := range file.Bindings.Profiles {
+			if network == "" || target == network {
+				b.Profiles[profile] = target
+			}
+		}
+	}
+	return b
+}
+
+func (a *app) printBindings(b netprofile.Bindings) {
+	if len(b.Profiles) == 0 {
+		return
+	}
+	names := make([]string, 0, len(b.Profiles))
+	for name := range b.Profiles {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	fmt.Fprintln(a.deps.Stdout, "profile bindings (operator-local):")
+	for _, name := range names {
+		fmt.Fprintf(a.deps.Stdout, "  %s -> %s\n", name, b.Profiles[name])
+	}
 }
 
 func yesNo(b bool) string {
@@ -141,14 +172,15 @@ func (a *app) show(args []string) int {
 	isDefault := cat.File.Default == name
 	if a.json {
 		a.emit(struct {
-			Schema       string             `json:"schema"`
-			OK           bool               `json:"ok"`
-			Profile      netprofile.Profile `json:"profile"`
-			Digest       string             `json:"digest"`
-			Default      bool               `json:"default"`
-			Confirmation confirmation       `json:"confirmation"`
-			Patch        patchDoc           `json:"patch"`
-		}{SchemaShow, true, p, digest, isDefault, conf, patchDocOf(patch)})
+			Schema       string              `json:"schema"`
+			OK           bool                `json:"ok"`
+			Profile      netprofile.Profile  `json:"profile"`
+			Digest       string              `json:"digest"`
+			Default      bool                `json:"default"`
+			Confirmation confirmation        `json:"confirmation"`
+			Patch        patchDoc            `json:"patch"`
+			Bindings     netprofile.Bindings `json:"bindings"`
+		}{SchemaShow, true, p, digest, isDefault, conf, patchDocOf(patch), bindingsOf(cat.File, name)})
 		return ExitOK
 	}
 	out := a.deps.Stdout
@@ -167,6 +199,7 @@ func (a *app) show(args []string) int {
 	fmt.Fprintf(out, "digest:          %s\n", digest)
 	fmt.Fprintf(out, "confirmed:       %s\n", conf.human())
 	fmt.Fprintf(out, "default:         %s\n", yesNo(isDefault))
+	a.printBindings(bindingsOf(cat.File, name))
 	fmt.Fprintf(out, "patch (%s):\n", envpatch.AdapterGeneric)
 	fmt.Fprintf(out, "  unset: %s\n", strings.Join(patch.Unset, " "))
 	for _, kv := range patch.Set {

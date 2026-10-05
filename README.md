@@ -49,6 +49,33 @@ before 1.0, with the following compatibility requirements.
 - `check --json` adds a `kind` field per profile. This is additive; strict
   decoders must allow the field.
 
+## Upgrading for operator profile bindings
+
+Bindings come only from the destination operator's `~/.curator/network.toml`,
+in `[bindings.profiles]`. The caller supplies `resolve.Request.CuratorProfile`;
+the library does not discover it from a project, profile file or environment
+selector. Selection orders explicit → inherited → runtime-default →
+profile-binding → project-default → operator-default.
+
+- `resolve.Request` and `netprofile.File` gain fields, breaking positional
+  (unkeyed) struct literals. Use keyed literals for both exported structs.
+- Update strict `list --json` and `show --json` decoders: outputs under the
+  existing v1 schemas always include `bindings`, even when `profiles` is an
+  empty object.
+- Upgrade every catalog reader before adding bindings. Pre-binding readers
+  reject the whole catalog. Before rollback, remove the entire bindings table,
+  including any empty header left after the last `unbind`.
+- Record consumers with a closed origin set must accept `profile-binding`.
+  Profile digests, binding equality, Record fields and schema identifiers stay
+  unchanged. Existing runs retain their recorded reference on resume.
+- The current `hosted.Carrier` v1 has no `profile-binding` origin. Preserving
+  that provenance needs a separately specified, versioned integration; never
+  relabel it as `operator` or `explicit` to cross that boundary.
+
+See [integration contract §1.3](docs/integration-contract.md#13-selection-precedence-and-operator-local-bindings)
+and [appendix §3.7](spec/contract-appendix.md#37-selection-and-inheritance-spec-n3-n4-n8)
+for the operator-only source and strict namespace rules.
+
 ## Using the provider
 
 ```sh

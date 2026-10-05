@@ -30,7 +30,7 @@ ref+origin      N4/N3/N12              N10              N3             N5       
 
 | Operation | Input / result | Refusals |
 | --- | --- | --- |
-| resolve/validate | caller's explicit/inherited/runtime/project refs; host catalog, confirmations, allowed set, assurance and engine hosts → normalized profile and origin, or unmanaged | `network_profile_unknown`, `network_profile_denied`, `network_file_unreadable`, `network_profile_invalid`, `network_configuration_conflict`, `network_scope_unsupported` |
+| resolve/validate | caller's explicit/inherited/runtime/project refs and optional Curator profile name; host catalog, confirmations, allowed set, assurance and engine hosts → normalized profile and origin, or unmanaged | `network_profile_unknown`, `network_profile_denied`, `network_file_unreadable`, `network_profile_invalid`, `network_configuration_conflict`, `network_scope_unsupported` |
 | preflight | direct or plan/dry run → no probe, `ProbeRecord` tcp/connect/tls = `skipped`; otherwise endpoint, optional target, deadline → TCP/CONNECT/TLS facts | `network_proxy_unreachable`, `network_proxy_auth_failed` |
 | bind / patch / record | verified adapter tuple → Binding; direct unsets only (empty set), proxy unsets then sets final env; sanitized managed Record | no new refusal codes |
 | reattach / resume | recorded Record, freshly resolved binding, event → full equality check | `network_profile_drift`, `network_scope_unsupported`; resolve's unknown/denied comes first |
@@ -62,6 +62,39 @@ Absent key means unmanaged. The illustrative Record omits endpoint, env and cred
 | new assignment, unequal binding, verified per-session route | N7 permits set-per-session; deferred for first-release live hosts (§2.3) |
 
 A changed profile requires restoration or a genuinely new launch, never silent rerouting of the existing run. Retry has the separate proposed policy in §2.2.
+
+### 1.3 Selection precedence and operator-local bindings
+
+Selection precedence is **explicit → inherited → runtime-default → profile-binding → project-default → operator-default**; no selection is unmanaged. Host locks and the allowed set constrain whichever reference wins. A selected unknown target refuses with `network_profile_unknown` without falling back.
+
+The caller passes the optional Curator profile name in `resolve.Request.CuratorProfile`. The resolver looks up that exact identifier only in the destination operator catalog, `~/.curator/network.toml`:
+
+```toml
+[bindings.profiles]
+work = "egress-a"
+"work.dev" = "direct"
+```
+
+Both keys and targets follow the existing identifier grammar. Namespace keys must be exactly `bindings`, `profiles` and the reserved `paths`; case aliases and duplicate mappings are refused without merging. Quoted or escaped keys that decode to those exact names are accepted. Unknown keys are refused. `[bindings.paths]` is reserved and refused with `network_scope_unsupported`, including an empty table. Bindings MUST NOT be read from a project or a Curator profile. Projects may continue supplying `spawn.network.default`; runtime defaults remain higher priority than profile bindings.
+
+`curator network bind <curator-profile> <network>` sets or replaces a binding; `unbind <curator-profile>` removes one. Both require the existing agent-session guard, operator terminal and an explicit `yes` before the atomic catalog edit. A catalog change during the prompt refuses; the target's digest still needs its separate confirmation. `list` includes every binding; `show <network>` includes the bindings targeting that network. JSON uses the additive `bindings.profiles` map in both documents.
+
+The selected origin is `profile-binding` in Selection and Record. Bindings are excluded from profile digests and binding equality; record schema and resume/drift semantics stay unchanged. All catalog consumers must accept this additive origin and catalog table before operators add bindings. CLI editing preserves unrelated catalog bytes and supports ordinary single-line entries in `[bindings.profiles]`; other TOML layouts require manual editing.
+
+Source and strict-decoder compatibility require an explicit migration:
+`resolve.Request` and `netprofile.File` gain fields, so use keyed literals for
+both exported structs. Strict `list --json` and `show --json` decoders must
+accept the always-present `bindings` field, including empty maps, under the
+existing v1 schemas. Pre-binding catalog readers reject the whole catalog;
+upgrade every reader before adding bindings. Rollback must remove the entire
+bindings table, including an empty header left after the last `unbind`.
+
+The current `hosted.Carrier` v1 has no `profile-binding` origin. Preserving
+provenance across that boundary requires a separately specified, versioned
+integration, never relabeling the origin as `operator` or `explicit`.
+These rollout requirements are separate from the unchanged profile digests,
+binding equality and Record fields/schema. See the
+[binding migration notes](../README.md#upgrading-for-operator-profile-bindings).
 
 ## 2. Per consumer: where, who, what
 
@@ -111,7 +144,7 @@ A tuple is supported only once its **R0–R5 (+R6 where a model client exists)**
 
 Persist **parent identity plus resolved reference** during reservation (B/cmd/spawn.go:2804); restore through `QueuedPreparation` (:3089–3127), and copy through R/runtime.go:3205, R/limit_retry.go:413 and R/directives.go:870–979. Review fan-out re-enters the pipeline (B/cmd/spawn_review_fanout.go:180). Retries bypass parent lookup (R/runtime.go:2021–2063): rebuild managed retry envelopes (R/limit_retry.go:447,524,575) and rebind successor envelopes (R/directives.go:875). Validate manifest/control identity and allowed sets; mutable `TASK_BOARD_RUN_ID` alone is not authorization (A/pkg/agentic/runcontext.go:31–44 is vendored at v0.5.30, B/go.mod:10).
 
-Primaries use session markers, not RUN_ID (H/codex_host.go:293–311; claude_host.go:2461–2483): require authenticated session-record lookup or explicit child selection. Non-board profiled parents need an explicit carrier contract too. Use `Request.Inherited` and `OriginInherited`, with precedence **explicit → inherited → runtime → project → operator**; N3/N4 and Record's closed origin vocabulary now include `inherited`. The library never discovers the reference from the environment. Origin and transport are independent. A parent on A can explicitly select B for a child, subject to host authorization.
+Primary sessions require authenticated session-record lookup or explicit child selection; ambient session markers alone do not authorize inheritance. Non-board profiled parents need an explicit carrier contract too. Use `Request.Inherited` and `OriginInherited`, with precedence **explicit → inherited → runtime-default → profile-binding → project-default → operator-default**; N3/N4 and Record's closed origin vocabulary now include `inherited`. The library never discovers the reference from the environment. Origin and transport are independent. A parent on A can explicitly select B for a child, subject to host authorization.
 
 #### Retry and recovery: Q3
 
@@ -192,7 +225,7 @@ Rev 2 is adopted as D1. Consumer implementation remains DRAFT; the following dec
 | Item | Status / outcome |
 | --- | --- |
 | D1 | decided (operator decision D1): integration contract rev 2 ADOPTED; DRAFT until implemented by consumers |
-| D2 / Q2 | decided (operator decision D2): option (a), `inherited` origin; durable reference plus re-resolution on the child's host; explicit → inherited → runtime → project → operator, subject to host locks / allowed set |
+| Inheritance and selection precedence | Adopted: `inherited` origin; durable reference plus re-resolution on the child's host; explicit → inherited → runtime-default → profile-binding → project-default → operator-default, subject to host locks / allowed set |
 | D3 / explicit direct | decided (operator decision D3, 2026-10-02 05:26Z): option (b), named `kind = "direct"`, shipped in v0.2.0 (§2.2) |
 | D4 / Q1 | decided (operator decision D4): typed `Network{Patch, Record}` fields, not callbacks (§2.1) |
 | D5 / suites | decided (operator decision D5): evidence records route ref and digest, or `ambient`, never proxy values (§2.2) |

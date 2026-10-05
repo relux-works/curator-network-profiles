@@ -78,7 +78,7 @@ test (two concurrent launches through two egresses, real binaries) is
    │                └── ~/.curator/network.confirmations.json ──► confirm.Ledger
    ▼
  resolve.Resolve(file, ledger, req)
-   │  explicit → inherited → runtime-default → project-default → operator-default; else UNMANAGED (empty patch)
+   │  explicit → inherited → runtime-default → profile-binding → project-default → operator-default; else UNMANAGED (empty patch)
    │  allowed set → exists → assurance → confirmed at digest → engine hosts covered (proxy only)
    ▼
  preflight branch
@@ -329,9 +329,13 @@ at reservation and passed as `Request.Inherited`; it is re-resolved on the
 child's host, subject to that host's allowed set and confirmations, never
 inferred from env or proxy values (operator decision D2). Explicit selection
 overrides inheritance; inheritance overrides all defaults. Origins for
-C2 are `resolve.OriginRuntimeDefault` (per-binding `network`) and
-`resolve.OriginProjectDefault` (`spawn.network.default`); the file's `default`
-is `operator-default`. A router's CandidateResolver uses `resolve.Select` (a
+C2 are `resolve.OriginRuntimeDefault` (per-binding `network`),
+`resolve.OriginProfileBinding` (operator `[bindings.profiles]` lookup using
+`Request.CuratorProfile`) and `resolve.OriginProjectDefault` (`spawn.network.default`); the file's `default`
+is `operator-default`. Profile bindings come only from the destination operator's
+`~/.curator/network.toml`, never project/profile files or environment selectors.
+See [appendix §3.7](../spec/contract-appendix.md#37-selection-and-inheritance-spec-n3-n4-n8)
+for the table and origin contract. A router's CandidateResolver uses `resolve.Select` (a
 lookup, never a probe; spec N13).
 
 **N-D, managed gateway.** `gateway.Managed` adds `Acquire(ctx, profile, owner)`,

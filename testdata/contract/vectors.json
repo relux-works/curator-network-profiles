@@ -93,6 +93,29 @@
           "checked_at": "0001-01-01T00:00:00Z"
         }
       }
+    },
+    {
+      "id": "R5",
+      "note": "an operator-local profile binding retains its origin without changing the digest or record shape",
+      "record": {
+        "schema": "relux-network-binding-record-v1",
+        "profile_ref": "egress-a",
+        "profile_digest": "sha256:1e5912de9e3459a12b7365f338d385c1c4c7b4a6b622598e17ed4004d7658699",
+        "adapter_identity": {
+          "adapter": "generic-env-v1",
+          "harness": "exec",
+          "build": "",
+          "entrypoint": "codex"
+        },
+        "assurance": "cooperative",
+        "origin": "profile-binding",
+        "probe": {
+          "tcp": "skipped",
+          "connect": "skipped",
+          "tls": "skipped",
+          "checked_at": "0001-01-01T00:00:00Z"
+        }
+      }
     }
   ],
   "resolve": [
@@ -245,6 +268,176 @@
         "operator_default": "",
         "allowed": [
           "egress-a"
+        ],
+        "confirmed": true
+      },
+      "refusal": "network_profile_denied"
+    },
+    {
+      "id": "S10",
+      "note": "profile binding beats project and operator defaults",
+      "input": {
+        "curator_profile": "work",
+        "profile_bindings": {
+          "work": "egress-a"
+        },
+        "explicit": "",
+        "inherited": "",
+        "runtime_default": "",
+        "project_default": "egress-b",
+        "operator_default": "egress-b",
+        "allowed": null,
+        "confirmed": true
+      },
+      "selection": {
+        "profile_ref": "egress-a",
+        "origin": "profile-binding",
+        "required_assurance": "cooperative"
+      },
+      "digest": "sha256:1e5912de9e3459a12b7365f338d385c1c4c7b4a6b622598e17ed4004d7658699"
+    },
+    {
+      "id": "S11",
+      "note": "runtime default beats profile binding",
+      "input": {
+        "curator_profile": "work",
+        "profile_bindings": {
+          "work": "egress-a"
+        },
+        "explicit": "",
+        "inherited": "",
+        "runtime_default": "egress-b",
+        "project_default": "",
+        "operator_default": "",
+        "allowed": null,
+        "confirmed": true
+      },
+      "selection": {
+        "profile_ref": "egress-b",
+        "origin": "runtime-default",
+        "required_assurance": "cooperative"
+      },
+      "digest": "sha256:b21dbf86d848612b34057485267e34c659636fd30f1726ee12ea0ff869cfd328"
+    },
+    {
+      "id": "S12",
+      "note": "inherited reference beats profile binding",
+      "input": {
+        "curator_profile": "work",
+        "profile_bindings": {
+          "work": "egress-a"
+        },
+        "explicit": "",
+        "inherited": "egress-b",
+        "runtime_default": "",
+        "project_default": "",
+        "operator_default": "",
+        "allowed": null,
+        "confirmed": true
+      },
+      "selection": {
+        "profile_ref": "egress-b",
+        "origin": "inherited",
+        "required_assurance": "cooperative"
+      },
+      "digest": "sha256:b21dbf86d848612b34057485267e34c659636fd30f1726ee12ea0ff869cfd328"
+    },
+    {
+      "id": "S13",
+      "note": "an unknown profile binding target is refused without falling back",
+      "input": {
+        "curator_profile": "work",
+        "profile_bindings": {
+          "work": "missing"
+        },
+        "explicit": "",
+        "inherited": "",
+        "runtime_default": "",
+        "project_default": "egress-b",
+        "operator_default": "",
+        "allowed": null,
+        "confirmed": true
+      },
+      "refusal": "network_profile_unknown"
+    },
+    {
+      "id": "S14",
+      "note": "an omitted Curator profile ignores bindings",
+      "input": {
+        "profile_bindings": {
+          "work": "egress-a"
+        },
+        "explicit": "",
+        "inherited": "",
+        "runtime_default": "",
+        "project_default": "egress-b",
+        "operator_default": "",
+        "allowed": null,
+        "confirmed": true
+      },
+      "selection": {
+        "profile_ref": "egress-b",
+        "origin": "project-default",
+        "required_assurance": "cooperative"
+      },
+      "digest": "sha256:b21dbf86d848612b34057485267e34c659636fd30f1726ee12ea0ff869cfd328"
+    },
+    {
+      "id": "S15",
+      "note": "a profile without a binding uses the project default",
+      "input": {
+        "curator_profile": "other",
+        "profile_bindings": {
+          "work": "egress-a"
+        },
+        "explicit": "",
+        "inherited": "",
+        "runtime_default": "",
+        "project_default": "egress-b",
+        "operator_default": "",
+        "allowed": null,
+        "confirmed": true
+      },
+      "selection": {
+        "profile_ref": "egress-b",
+        "origin": "project-default",
+        "required_assurance": "cooperative"
+      },
+      "digest": "sha256:b21dbf86d848612b34057485267e34c659636fd30f1726ee12ea0ff869cfd328"
+    },
+    {
+      "id": "S16",
+      "note": "a profile binding still requires digest confirmation",
+      "input": {
+        "curator_profile": "work",
+        "profile_bindings": {
+          "work": "egress-a"
+        },
+        "explicit": "",
+        "inherited": "",
+        "runtime_default": "",
+        "project_default": "",
+        "operator_default": "",
+        "allowed": null,
+        "confirmed": false
+      },
+      "refusal": "network_profile_denied"
+    },
+    {
+      "id": "S17",
+      "note": "a profile binding obeys the host allowed set",
+      "input": {
+        "curator_profile": "work",
+        "profile_bindings": {
+          "work": "egress-a"
+        },
+        "explicit": "",
+        "inherited": "",
+        "runtime_default": "",
+        "project_default": "",
+        "operator_default": "",
+        "allowed": [
+          "egress-b"
         ],
         "confirmed": true
       },

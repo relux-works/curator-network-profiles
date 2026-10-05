@@ -115,13 +115,15 @@ type ResolveVector struct {
 }
 
 type resolveInput struct {
-	Explicit        string   `json:"explicit"`
-	Inherited       string   `json:"inherited"`
-	RuntimeDefault  string   `json:"runtime_default"`
-	ProjectDefault  string   `json:"project_default"`
-	OperatorDefault string   `json:"operator_default"`
-	Allowed         []string `json:"allowed"` // null allows all, [] allows none
-	Confirmed       bool     `json:"confirmed"`
+	CuratorProfile  string            `json:"curator_profile,omitempty"`
+	ProfileBindings map[string]string `json:"profile_bindings,omitempty"`
+	Explicit        string            `json:"explicit"`
+	Inherited       string            `json:"inherited"`
+	RuntimeDefault  string            `json:"runtime_default"`
+	ProjectDefault  string            `json:"project_default"`
+	OperatorDefault string            `json:"operator_default"`
+	Allowed         []string          `json:"allowed"` // null allows all, [] allows none
+	Confirmed       bool              `json:"confirmed"`
 }
 
 // Set is every vector of the appendix.
@@ -221,6 +223,7 @@ func Vectors() (Set, error) {
 	}
 	direct := binding.Binding{ProfileRef: "direct", ProfileDigest: netprofile.Digest(profiles["D9"]), AdapterIdentity: identity, Assurance: binding.AssuranceCooperative, EnvPatch: patchOf("D9")}
 	s.Record = append(s.Record, RecordVector{"R4", "managed direct keeps its named reference and digest; all probes skipped", direct.Record("explicit", nil)})
+	s.Record = append(s.Record, RecordVector{"R5", "an operator-local profile binding retains its origin without changing the digest or record shape", boundA.Record(string(resolve.OriginProfileBinding), nil)})
 	resolveIn := []struct {
 		id, note string
 		in       resolveInput
@@ -234,14 +237,22 @@ func Vectors() (Set, error) {
 		{"S7", "explicit direct overrides a profiled parent within the allowed set", resolveInput{Explicit: "direct", Inherited: "egress-a", Allowed: []string{"direct"}, Confirmed: true}},
 		{"S8", "direct is a widening entry requiring confirmation", resolveInput{Explicit: "direct"}},
 		{"S9", "direct obeys the host allowed set", resolveInput{Explicit: "direct", Allowed: []string{"egress-a"}, Confirmed: true}},
+		{"S10", "profile binding beats project and operator defaults", resolveInput{CuratorProfile: "work", ProfileBindings: map[string]string{"work": "egress-a"}, ProjectDefault: "egress-b", OperatorDefault: "egress-b", Confirmed: true}},
+		{"S11", "runtime default beats profile binding", resolveInput{RuntimeDefault: "egress-b", CuratorProfile: "work", ProfileBindings: map[string]string{"work": "egress-a"}, Confirmed: true}},
+		{"S12", "inherited reference beats profile binding", resolveInput{Inherited: "egress-b", CuratorProfile: "work", ProfileBindings: map[string]string{"work": "egress-a"}, Confirmed: true}},
+		{"S13", "an unknown profile binding target is refused without falling back", resolveInput{CuratorProfile: "work", ProfileBindings: map[string]string{"work": "missing"}, ProjectDefault: "egress-b", Confirmed: true}},
+		{"S14", "an omitted Curator profile ignores bindings", resolveInput{ProfileBindings: map[string]string{"work": "egress-a"}, ProjectDefault: "egress-b", Confirmed: true}},
+		{"S15", "a profile without a binding uses the project default", resolveInput{CuratorProfile: "other", ProfileBindings: map[string]string{"work": "egress-a"}, ProjectDefault: "egress-b", Confirmed: true}},
+		{"S16", "a profile binding still requires digest confirmation", resolveInput{CuratorProfile: "work", ProfileBindings: map[string]string{"work": "egress-a"}}},
+		{"S17", "a profile binding obeys the host allowed set", resolveInput{CuratorProfile: "work", ProfileBindings: map[string]string{"work": "egress-a"}, Allowed: []string{"egress-b"}, Confirmed: true}},
 	}
 	for _, r := range resolveIn {
-		f := &netprofile.File{Schema: Schema, Default: r.in.OperatorDefault, Networks: map[string]netprofile.Profile{"egress-a": profiles["D1"], "egress-b": profiles["D2"], "direct": profiles["D9"]}}
+		f := &netprofile.File{Schema: Schema, Default: r.in.OperatorDefault, Bindings: netprofile.Bindings{Profiles: r.in.ProfileBindings}, Networks: map[string]netprofile.Profile{"egress-a": profiles["D1"], "egress-b": profiles["D2"], "direct": profiles["D9"]}}
 		ledger := resolve.ConfirmedFunc(func(name, digest string) bool {
 			p, ok := f.Lookup(name)
 			return r.in.Confirmed && ok && digest == netprofile.Digest(p)
 		})
-		res, err := resolve.Resolve(f, ledger, resolve.Request{Explicit: r.in.Explicit, Inherited: r.in.Inherited, RuntimeDefault: r.in.RuntimeDefault, ProjectDefault: r.in.ProjectDefault, Allowed: r.in.Allowed})
+		res, err := resolve.Resolve(f, ledger, resolve.Request{CuratorProfile: r.in.CuratorProfile, Explicit: r.in.Explicit, Inherited: r.in.Inherited, RuntimeDefault: r.in.RuntimeDefault, ProjectDefault: r.in.ProjectDefault, Allowed: r.in.Allowed})
 		v := ResolveVector{ID: r.id, Note: r.note, Input: r.in}
 		if err != nil {
 			code, ok := refusal.CodeOf(err)
