@@ -2,7 +2,7 @@
 
 Per-launch network profiles for coding agents. A network profile is a named, machine-local description of an application-level proxy or a cooperative direct route for a harness's supported network clients. The process owner resolves and validates the profile, probes only real proxy launches, and applies an environment patch immediately before spawn. Direct skips all probes and uses an unset-only patch with no set values; plans and dry runs also skip probes (`tcp`, `connect`, `tls` = `skipped`). Several agents on one machine can then use different egresses at the same time, without changing the orchestrator, sibling agents or the operating system. The first release is cooperative proxy routing of supported clients, not an enforced sandbox.
 
-**Status: slice A (track step N-A) is implemented in v0.2.0: the library, the operator file `~/.curator/network.toml`, the provider `curator-network`, the contract appendix and the loopback demo. The design specification stays DRAFT; `spec/contract-appendix.md` is normative for contract version `relux-network-profiles-v1`.**
+**Status: v0.3.0. Slice A (track step N-A) is implemented since v0.2.0: the library, the operator file `~/.curator/network.toml`, the provider `curator-network`, the contract appendix and the loopback demo. v0.3.0 adds `pkg/hosted`, the network boundary for session hosts, and operator-local profile bindings (N-C2). The design specification stays DRAFT; `spec/contract-appendix.md` is normative for contract version `relux-network-profiles-v1`.**
 
 ## Layout
 

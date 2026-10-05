@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.3.0 (2026-10-05)
 
 - Add strict operator-local `[bindings.profiles]` defaults and optional
   `resolve.Request.CuratorProfile`; selection now orders explicit, inherited,
