@@ -4,6 +4,15 @@ Per-launch network profiles for coding agents. A network profile is a named, mac
 
 **Status: v0.3.0. Slice A (track step N-A) is implemented since v0.2.0: the library, the operator file `~/.curator/network.toml`, the provider `curator-network`, the contract appendix and the loopback demo. v0.3.0 adds `pkg/hosted`, the network boundary for session hosts, and operator-local profile bindings (N-C2). The design specification stays DRAFT; `spec/contract-appendix.md` is normative for contract version `relux-network-profiles-v1`.**
 
+Adapter build policy is available through `pkg/adapterprobe.Evaluate` over an
+immutable caller-supplied artifact snapshot: exact allowlisted or evidenced
+builds are qualified, new builds of known vendor lines run unqualified with a
+typed provenance record the consumer must show and store, and unknown lines
+refuse. A content pin alone never qualifies. Fresh harness qualification and
+persistent-cache access return typed Unsupported until secure native
+supervision exists. Plans, direct profiles, dry runs and live reattach all
+evaluate here; see [the integration contract](docs/integration-contract.md).
+
 ## Layout
 
 | Path | Content |
@@ -75,6 +84,42 @@ profile-binding → project-default → operator-default.
 See [integration contract §1.3](docs/integration-contract.md#13-selection-precedence-and-operator-local-bindings)
 and [appendix §3.7](spec/contract-appendix.md#37-selection-and-inheritance-spec-n3-n4-n8)
 for the operator-only source and strict namespace rules.
+
+## Upgrading for sensitive egress
+
+A network profile may declare `sensitive_egress = true`. Adapter policy
+then defaults to strict for that profile: unknown builds refuse with
+`strict_miss`, and only exact allowlisted builds run; an identity-only
+pin never qualifies there. The declaration cannot be downgraded
+to optimistic by a mode flag. It is digested when true, so adding or
+removing the declaration changes the profile digest and needs `confirm`;
+explicit `false` is intentionally identical to absence.
+
+- Upgrade **every catalog reader on the machine** to this version
+  **before adding the field**. A pre-field reader rejects the **whole
+  catalog** once any profile carries `sensitive_egress`, even when the
+  selection names a different profile. Remove the field from every
+  profile before downgrading.
+- Update strict `show --json` decoders: outputs under the existing v1
+  schema gain the additive `sensitive_egress` key on the embedded
+  profile, present only when true.
+- `netprofile.Input` and `netprofile.Profile` gain fields, breaking
+  positional (unkeyed) struct literals. Use keyed literals for both
+  exported structs.
+- `hosted.Options` gains `VerifyAdapterWithProfile`, breaking positional
+  (unkeyed) struct literals. Use keyed literals, for example
+  `hosted.Options{OperatorHome: home, Identity: id,
+  VerifyAdapterWithProfile: verify}`. New code must use the profile-aware
+  callback (the host passes its own resolved profile snapshot so the same
+  sensitivity is evaluated without a second catalog read) and must retain
+  the sibling `adapter_provenance` for unqualified builds in the session
+  envelope; `VerifyAdapter` remains only for legacy callers.
+- The contract schema strings stay v1 for this additive pre-1.0
+  change. Profile digests without the declaration are unchanged.
+
+See [integration contract §1.4](docs/integration-contract.md#14-adapter-build-policy-option-c)
+and [appendix §1](spec/contract-appendix.md#1-profile-digest) /
+[§3.8](spec/contract-appendix.md#38-adapter-build-policy-option-c).
 
 ## Using the provider
 

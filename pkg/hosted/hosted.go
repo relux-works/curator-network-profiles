@@ -29,16 +29,31 @@ type LedgerLoader func(context.Context, string) (resolve.Confirmations, error)
 // evidence. Generic environment compatibility alone is not authorization.
 type AdapterVerifier func(context.Context, binding.AdapterIdentity, string) error
 
+// AdapterVerifierWithProfile verifies the exact tuple, child scope and
+// adapter policy against the destination's resolved profile snapshot. It
+// is the option-C path: the host passes its own resolved profile
+// (including SensitiveEgress) so the caller evaluates the same snapshot
+// without a second independently changing catalog read. Callers evaluate
+// the snapshot with adapterprobe.Evaluate (loaded known-bad state plus
+// the passed sensitivity), check the admitted Decision, convert it with
+// Decision.BoundIdentity, and retain the independent child-scope gate.
+// The legacy AdapterVerifier remains for callers that have not migrated;
+// new code must use this profile-aware form.
+type AdapterVerifierWithProfile func(ctx context.Context, id binding.AdapterIdentity, assurance string, profile netprofile.Profile) error
+
 // Options are trusted host inputs, never fields supplied by the launch payload.
 type Options struct {
 	OperatorHome string
 	LoadCatalog  CatalogLoader
 	LoadLedger   LedgerLoader
 	// Adapter defaults to envpatch.Generic. Its identity must match Identity.
-	Adapter           envpatch.Adapter
-	Identity          binding.AdapterIdentity
-	VerifyAdapter     AdapterVerifier
-	RequiredAssurance string
+	Adapter       envpatch.Adapter
+	Identity      binding.AdapterIdentity
+	VerifyAdapter AdapterVerifier
+	// VerifyAdapterWithProfile is the option-C verifier: when set it
+	// replaces VerifyAdapter and receives the resolved profile snapshot.
+	VerifyAdapterWithProfile AdapterVerifierWithProfile
+	RequiredAssurance        string
 	// Allowlist: nil allows all catalog entries; a non-nil empty list denies all.
 	Allowlist   []string
 	EngineHosts []string
@@ -113,10 +128,14 @@ func ResolveForHost(ctx context.Context, c Carrier, opts Options) (binding.Bindi
 		adapter = envpatch.Generic{}
 	}
 	id := opts.Identity
-	if !identityRE.MatchString(id.Adapter) || !identityRE.MatchString(id.Harness) || !identityRE.MatchString(id.Build) || !identityRE.MatchString(id.Entrypoint) || id.Adapter != adapter.Identity() || opts.VerifyAdapter == nil {
+	if !identityRE.MatchString(id.Adapter) || !identityRE.MatchString(id.Harness) || !identityRE.MatchString(id.Build) || !identityRE.MatchString(id.Entrypoint) || id.Adapter != adapter.Identity() || (opts.VerifyAdapter == nil && opts.VerifyAdapterWithProfile == nil) {
 		return fail(refusal.New(refusal.CodeScopeUnsupported, c.Ref, "a locally verified adapter tuple is required"))
 	}
-	if err := opts.VerifyAdapter(ctx, id, res.Assurance); err != nil {
+	if opts.VerifyAdapterWithProfile != nil {
+		if err := opts.VerifyAdapterWithProfile(ctx, id, res.Assurance, res.Profile); err != nil {
+			return fail(refusal.New(refusal.CodeScopeUnsupported, c.Ref, "host adapter or child scope is unsupported"))
+		}
+	} else if err := opts.VerifyAdapter(ctx, id, res.Assurance); err != nil {
 		return fail(refusal.New(refusal.CodeScopeUnsupported, c.Ref, "host adapter or child scope is unsupported"))
 	}
 	if err := ValidateEnvNames(opts.EnvNames); err != nil {

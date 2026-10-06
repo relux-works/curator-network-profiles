@@ -4,18 +4,13 @@ Status: **ADOPTED by Ivan 2026-10-02 (operator decision); DRAFT until implemente
 
 Normative inputs: `spec/network-profiles.md` (N1–N14) and the implemented `spec/contract-appendix.md` (digest, EnvPatch, equality, Record and refusals). **The appendix wins on bytes.** The inherited-origin amendment (D2) is implemented in this library; consumer changes remain DRAFT until implemented.
 
-Source pins checked locally on 2026-10-02; citations use these aliases (short filenames retain the stated directory):
-
-| Alias | Repository / path | Commit |
-| --- | --- | --- |
-| N | this repository, N-A implementation/spec baseline | `bf6d514` |
-| A | skill-agents-management | `400f5377` |
-| B | skill-project-management / `tools/board-cli` | `110270d9` |
-| R / H | B / `internal/spawnruntime` / `internal/sessionmanager` | same as B |
-| L | curator-agent-launcher | `1ac7eafb` |
-| S | curator-spec | `e41c561b` |
-| C | curator | `2cb29dac` |
-| X | agent-session-host | `2c6cd39d` |
+Consumer repositories below are named by their public product names
+(`skill-agents-management`, `skill-project-management`, `curator-agent-launcher`,
+`curator-spec`, `curator`, `agent-session-host`). §2 states self-contained
+interface and lifecycle obligations each process owner implements —
+resolve and authorize on the destination, apply the patch last on every
+process path, retain and compare the durable identity, refuse drift and
+unsupported capabilities, and keep control-plane transport separate.
 
 Advice item numbers below retain the adopted numbering within §2.2 and §2.3 (operator decision, 2026-10-02); all nine objections were assessed. Only that owner replied by the deadline. Roadmap context comes from the project roadmap.
 
@@ -32,14 +27,14 @@ ref+origin      N4/N3/N12              N10              N3             N5       
 | --- | --- | --- |
 | resolve/validate | caller's explicit/inherited/runtime/project refs and optional Curator profile name; host catalog, confirmations, allowed set, assurance and engine hosts → normalized profile and origin, or unmanaged | `network_profile_unknown`, `network_profile_denied`, `network_file_unreadable`, `network_profile_invalid`, `network_configuration_conflict`, `network_scope_unsupported` |
 | preflight | direct or plan/dry run → no probe, `ProbeRecord` tcp/connect/tls = `skipped`; otherwise endpoint, optional target, deadline → TCP/CONNECT/TLS facts | `network_proxy_unreachable`, `network_proxy_auth_failed` |
-| bind / patch / record | verified adapter tuple → Binding; direct unsets only (empty set), proxy unsets then sets final env; sanitized managed Record | no new refusal codes |
+| bind / patch / record | admitted adapter tuple → Binding; direct unsets only (empty set), proxy unsets then sets final env; sanitized managed Record | no new refusal codes |
 | reattach / resume | recorded Record, freshly resolved binding, event → full equality check | `network_profile_drift`, `network_scope_unsupported`; resolve's unknown/denied comes first |
 
-These are conceptual stages, not separate public methods: `catalog.Load` and `Catalog.Resolve` perform catalog/ledger loading and validation (N/pkg/catalog/catalog.go:28–70; pkg/resolve/resolve.go:116–157). The appendix already implements the added file/profile codes, retaining their TODO(decision) labels. **Unmanaged means no selection, an empty patch and unchanged ambient routing; it does not mean direct.**
+These are conceptual stages, not separate public methods: `catalog.Load` and `Catalog.Resolve` perform catalog/ledger loading and validation. The appendix already implements the added file/profile codes, retaining their TODO(decision) labels. **Unmanaged means no selection, an empty patch and unchanged ambient routing; it does not mean direct.**
 
-Apply the patch **after filtering and every overlay**, updating full Env and owned literals. For direct, unset the proxy family from both Env and owned literals and set nothing. A proxy patch's `set` half travels as `env_literals`, never `env_names` (N5; S/decisions/0013-execution-ownership-and-launch-plans.md:193–206). Later overlays must refuse proxy-family names case-insensitively (`network_configuration_conflict`) when managed. Reapply the same patch after the final overlay if cleanliness cannot be proved; idempotence does not protect against later writes or different bindings. Relevant late overlays are B/internal/spawn/launch_plan.go:479 and L/internal/composition/composition.go:91–110. A/pkg/vendorplugin/vendors/local-models/spawn.go:54 merges **before** BuildPlan (A/pkg/vendorplugin/spawn.go:249–315).
+Apply the patch **after filtering and every overlay**, updating full Env and owned literals. For direct, unset the proxy family from both Env and owned literals and set nothing. A proxy patch's `set` half travels as `env_literals`, never `env_names` (N5; execution-ownership decision). Later overlays must refuse proxy-family names case-insensitively (`network_configuration_conflict`) when managed. Reapply the same patch after the final overlay if cleanliness cannot be proved; idempotence does not protect against later writes or different bindings.
 
-Advice §2.2(5): “The `set` half can carry proxy userinfo.” Raw structs can, but normalized profiles refuse it (N/pkg/netprofile/profile.go:202–203). Only normalized, confirmed resolution may produce a patch; serialize **Record only**, never Binding/Patch, endpoint or env. Owned literals are recorded/replayed and must be non-secret (0013:232–235,304–313). V1 permits credential mode `none`; future secrets stay in a gateway, behind a loopback endpoint (N6/N11).
+Advice §2.2(5): “The `set` half can carry proxy userinfo.” Raw structs can, but normalized profiles refuse it. Only normalized, confirmed resolution may produce a patch; serialize **Record only**, never Binding/Patch, endpoint or env. Owned literals are recorded/replayed and must be non-secret. V1 permits credential mode `none`; future secrets stay in a gateway, behind a loopback endpoint (N6/N11).
 
 Plans/dry runs resolve, validate, bind and patch, skip network preflight, and record tcp/connect/tls as `skipped` (N10). Direct also skips all three probes, including `check --probe`, and uses an unset-only patch with no set values. Only real proxy launches probe the destination; a targetless probe proves TCP only.
 
@@ -49,7 +44,7 @@ Plans/dry runs resolve, validate, bind and patch, skip network preflight, and re
 {"network":{"schema":"relux-network-binding-record-v1","profile_ref":"egress-a","origin":"explicit","profile_digest":"sha256:…","adapter_identity":{"adapter":"generic-env-v1","harness":"codex","build":"0.x.y","entrypoint":"exec"},"assurance":"cooperative","probe":{"tcp":"ok","connect":"skipped","tls":"skipped","checked_at":"RFC3339"}}}
 ```
 
-Absent key means unmanaged. The illustrative Record omits endpoint, env and credentials. Equality compares **digest + adapter identity + assurance**, not name. Resume re-resolves the recorded ref on that host; unknown/denied precedes comparison (N/spec/contract-appendix.md:757).
+Absent key means unmanaged. The illustrative Record omits endpoint, env and credentials. Equality compares **digest + adapter identity + assurance**, not name. Resume re-resolves the recorded ref on that host; unknown/denied precedes comparison. The session envelope adds the sibling `adapter_provenance` member for unqualified builds (§1.4).
 
 | Event | Outcome |
 | --- | --- |
@@ -96,100 +91,206 @@ These rollout requirements are separate from the unchanged profile digests,
 binding equality and Record fields/schema. See the
 [binding migration notes](../README.md#upgrading-for-operator-profile-bindings).
 
+### 1.4 Adapter build policy (option C)
+
+New builds of a known vendor line (the same adapter id and harness, for
+example `claude-code` with `generic-env-v1`) run optimistically, labelled
+"unqualified build", with a known-bad check. Unknown vendor lines and
+unknown adapters still refuse with `network_scope_unsupported`. Exact
+allowlisted builds are "qualified". Option C is the interim default; the
+owner may still select central qualification (A) instead. A local
+sandbox (B) stays out.
+
+`pkg/adapterprobe` hashes caller-supplied immutable native artifact
+snapshots and evaluates policy over that identity. `Evaluate` and evidence
+evaluation never open a binary path, start a process, read operator
+configuration, Keychain or tokens, or write state; the only filesystem
+read in the package is the explicit known-bad loader's narrowly supplied
+operator path (fixed `adapter-knownbad.json` under the caller-supplied
+root, or an explicitly configured path), read with a no-follow
+nonblocking regular-file bounded read that never follows symlinks.
+`Request.Args` must be empty; `Request.Binary`
+and `Request.Sandbox` are ignored legacy fields that new code leaves
+zero. Scripts and mutable runtime closures refuse. The process owner
+must execute exactly the approved bytes from immutable/private staging.
+
+Canonical adapter BuildID is `sha256-<64 lowercase hex>`, distinct from
+the `sha256:` profile digest. Use `Decision.BoundIdentity` for the shared
+adapter tuple for every admission (qualified and unqualified); do not
+silently migrate old vendor-label or colon-prefixed adapter records.
+Recipe revisions bind the fixed operation and intended observation;
+there are no automatic real-vendor recipes, and option C never attempts
+automatic qualification. Only `generic-env-v1` is implemented; decisions
+carry that adapter identity and `generic-proxy-transport-v1` scope and
+do not approve specialized adapters, MCP servers, hooks, tools or hosted
+routing.
+
+Use `adapterprobe.Evaluate` for every consumer event: plans, direct
+profiles, dry runs, real launches and live reattach. It returns
+qualified (allowlisted or evidenced), unqualified (with the typed
+provenance record below), or refused with a typed reason; every refusal
+carries `network_scope_unsupported`. No event starts a probe or invents
+evidence: plans and dry runs evaluate and record the decision without
+network preflight; direct profiles evaluate (sensitivity still applies)
+with an unset-only patch; reattach re-evaluates the unchanged snapshot
+and checks binding equality, so an unqualified launch reattaches as the
+same unqualified identity. `Lookup` and `Verified` are low-level,
+non-authorizing helpers, not launch verifiers. Endpoint `Preflight`
+does not authorize a harness process or a cache write. Build
+qualification here is distinct from the content pin (an admission
+constraint on the selected bytes) and from the launch plane's
+independent adapter, entrypoint and child-scope ceiling.
+
+Consumer sequence: load the operator known-bad file with
+`LoadKnownBad` (fixed `adapter-knownbad.json` under the supplied
+operator root, or an explicitly configured path); resolve the profile
+and take its `sensitive_egress` value; evaluate the immutable snapshot
+with that sensitivity and loaded list state; enforce the independent
+scope ceiling; show the exact provenance text for unqualified builds;
+execute exactly the admitted bytes; store the network `Record` plus the
+sibling `adapter_provenance` in the session envelope. The hosted
+boundary passes its own resolved profile snapshot to
+`VerifyAdapterWithProfile` so the same snapshot is evaluated without a
+second catalog read.
+
+Three binding conditions apply:
+
+1. **Provenance is visible.** Consumers MUST show the exact operator
+   text at launch and MUST store the typed provenance record
+   (`relux-adapter-provenance-v1`) in the session record, not only in
+   a log. The text states the risk: traffic may escape the proxy on
+   an unproven build; this is a policy gap, not credential exposure.
+   Consumers show `Provenance.OperatorText` verbatim:
+
+   ```text
+   Unqualified build: claude-code generic-env-v1/exec build sha256-<64 hex> (recipe claude-exec-v1) has no conformance evidence. Traffic may escape the proxy on this unproven build. This is a policy gap, not credential exposure.
+   ```
+
+   The session envelope retains the existing network `Record` plus the
+   typed record as a sibling `adapter_provenance` member (omitted when
+   qualified). Strict session decoders MUST allow the additive member.
+
+2. **Strict is one flag away.** Policy modes are optimistic (default),
+   strict and pinned. Strict is the DEFAULT for any network profile
+   that declares `sensitive_egress = true`; that declaration cannot
+   be downgraded to optimistic by the mode flag. A sensitive profile
+   refuses unknown builds with `strict_miss`; only exact allowlisted
+   builds run, and an identity-only pin never qualifies there. A pin
+   alone never qualifies anywhere: only an independently allowlisted or
+   evidenced build is qualified. A missing or different pin refuses
+   with `pinned_miss` before every allowlist or evidence hit. The
+   declaration is digested when true and needs `confirm` like any
+   profile change. The operator catalog schema is strict: upgrade every
+   catalog reader before adding the field, allow the additive
+   `sensitive_egress` key in strict `show --json` decoders, use keyed
+   literals for the extended `netprofile.Input` and
+   `netprofile.Profile` structs, and remove the field before rollback.
+   See the [migration notes](../README.md#upgrading-for-sensitive-egress).
+
+3. **The known-bad list is checked by binary SHA-256 and fails
+   closed.** The library ships an embedded list (currently empty,
+   always enforced) and loads an optional operator file
+   (`adapter-knownbad.json` under the supplied operator root, or an
+   explicitly configured path; schema `relux-adapter-knownbad-v1`, see
+   the appendix). A SHA-256 match refuses with `known_bad_build`. A
+   configured or present list that is unreadable, corrupt or of an
+   unknown version refuses (`knownbad_unreadable`, `knownbad_corrupt`
+   or `knownbad_version_unsupported`), never silently passes. A
+   genuinely absent optional default means the embedded set only.
+
+The optimistic evidence lookup is the seam for central qualification:
+a future signed-evidence source plugs in ahead of the unqualified
+fallback. Cache keys are exactly the binary SHA-256, never a version
+string. A changed adapter identity requires a new launch; existing
+runs retain their exact recorded identity.
+
 ## 2. Per consumer: where, who, what
 
 ### 2.1 Launch plane: `skill-agents-management`
 
-**Lands in:** optional N-B hook migration / N-C1a. **Q1 — decided (operator decision D4, typed launch-plane hook):** typed `Network{Patch,Record}` request data on `agentic.LaunchRequest` and `vendorplugin.SpawnRequest`, rather than arbitrary callbacks. Apply purely after `ChildEnv` (A/pkg/agentic/plan.go:459–463), including the separately filtered owned snapshot (:482–489; type :267–273). `LaunchRequest.Env` is the parent env (A/pkg/agentic/system.go:560); preserve existing engine provenance when adding network provenance. The module still owns no exec.
+**Lands in:** optional N-B hook migration / N-C1a. **Q1 — decided (operator decision D4, typed launch-plane hook):** typed `Network{Patch,Record}` request data on launch and spawn requests, rather than arbitrary callbacks. Apply purely after child-environment composition, including the separately filtered owned snapshot. Preserve existing engine provenance when adding network provenance. The module still owns no exec.
 
-Decision 0019 is **adopted** (S/decisions/0019-fragment-consumers-and-one-construction-site.md:5), but :117–120,172–175 leave environment composition with consumers pending a separate decision. Compose-first N-B remains viable. Keep owner-side final application until every later overlay rejects proxy names and final Env/OwnedEnv parity is proved.
+Decision 0019 is **adopted**, but environment composition stays with consumers pending a separate decision. Compose-first N-B remains viable. Keep owner-side final application until every later overlay rejects proxy names and final environment parity is proved.
 
-**Q7 — decided (operator decision D8):** support only verified exact harness/build/entrypoint/adapter tuples. Generic env support does not certify every claude/codex/qwen/pi/pinative/gemini/agy release. Verified harness-specific websocket/native overrides belong to that adapter, not the generic one (N5).
+**Q7 — decided (operator decision D8):** support only admitted harness, adapter, entrypoint and child-scope combinations. Generic env support does not certify every release. Verified harness-specific overrides belong to that adapter, not the generic one (N5).
 
-A tuple is supported only once its **R0–R5 (+R6 where a model client exists)** rows pass under the method in [harness verification](harness-verification.md) and the result is recorded here. Child rows must pass with the required adapter's mitigation applied; a generic-patch failure is not a pass. The launch plane's allowlist mirrors this table, including its scope limits and pending adapters; blocked or unverified scopes remain `network_scope_unsupported`.
+A combination is supported only once its rows pass under the method in [harness verification](harness-verification.md) and the result is recorded here. Child rows must pass with the required adapter's mitigation applied; a generic-patch failure is not a pass. Blocked or unverified scopes remain `network_scope_unsupported`.
 
-| Harness / build | Entrypoint | Required adapter | Launch-plane status / task |
+Under option C (§1.4) the launch plane keeps its independent adapter, entrypoint and child-scope ceiling: adapter policy is necessary, not sufficient, for launch. New builds of a known vendor line run as unqualified with the provenance shown and recorded; unknown vendor lines still refuse. The historical rows below are an evidence index, not digest approvals: no artifact SHA-256 provenance is available there, and they cannot populate an allowlist until the exact selected artifact is independently qualified. An exact-build ceiling that rejects every new build would defeat option C.
+
+| Harness | Entrypoint | Required adapter | Launch-plane status |
 | --- | --- | --- | --- |
-| `claude-code` **2.1.287** | `exec`, verified as `claude -p` | `generic-env-v1` | Allowlisted for the observed scope, **Claude transport support**; login-gated scopes below remain unverified |
-| `codex-cli` **0.159.0** | `exec`, verified as `codex exec` | **`codex-env-v1` REQUIRED** | Until the adapter exists, `--network` refuses Codex with `network_scope_unsupported`; **Codex adapter**, under the operator's priority |
-| `muse` **1.4.1-R4503.1 / 1.4.2-R4684.1** | `exec` / launcher, as recorded below | `muse-env-v1` | D8 = (A), supported with the required adapter; **Muse adapter** |
-| `pi`, `qwen`, `gemini`, `agy` (all builds) | Unverified | Unverified | Refused until each runs [harness verification](harness-verification.md) and its exact tuple's passing results are recorded here |
+| `claude-code` | `exec`, observed as `claude -p` | `generic-env-v1` | Transport scope observed; login-gated and interactive scopes remain unverified |
+| `codex-cli` | `exec`, observed as `codex exec` | **`codex-env-v1` REQUIRED** | Until the adapter exists, `--network` refuses Codex with `network_scope_unsupported` |
+| `muse` | `exec` / launcher | `muse-env-v1` | Supported with the required adapter; shell/tool-child scope remains an open gap |
+| `pi`, `qwen`, `gemini`, `agy` (all builds) | Unverified | Unverified | Refused until each runs [harness verification](harness-verification.md) and its passing results are recorded here |
 
-- **Claude evidence (2026-10-02, sink + SIGKILL sandbox; `REPORT-hv-r2.md`:31–54):** R0 checked startup/version only. R1 recorded one `CONNECT api.anthropic.com:443`, proving API-target routing rather than an authenticated model request. R3 lowercase, uppercase and `ALL_PROXY` variants reached that target. MCP stdio children **inherit all six exact values** (R4 PASS; R4b explicit env also PASS). All turn rows exited 1 at the login gate; R2 had zero sink requests and no transport-refusal message. No sandbox SIGKILL or non-loopback socket was observed (R5: 22 samples), including R2, but authenticated turn/fallback, hooks and tool scopes remain unverified (N11 scope). The verified entrypoint is `claude -p`; this evidence does not cover interactive mode. The launch-plane allowlist is **Claude transport support**.
-- **Codex evidence (2026-10-02, same method; `REPORT-hv-r2.md`:56–98):** R0 checked startup/version only. R1 and R3 route the model client over WebSockets and HTTPS through the proxy (`api.openai.com:443`); its WS→HTTPS fallback stays on that proxy. Startup CONNECTs also target `chatgpt.com:443`, `github.com:443` and `api.github.com:443`. R2 returned connection-refused errors and retried with zero sink requests, no observed direct fallback or sandbox SIGKILL within **30 s**; all turn rows ended at the supervisor timeout with **SIGTERM/143**, not a natural terminal error exit. R5 observed zero non-loopback sockets over 315 samples; later retries are not certified. MCP stdio children **do not inherit any of the six values** (R4 FAIL; hostile values also absent), while explicit server `env` blocks deliver all six exactly (R4b PASS). **`codex-env-v1` = the generic patch + its set half injected into each MCP server entry's `env`**, in launch-private materialised configuration, never shared MCP configuration. This is the same proposed injection mechanism as Muse's adapter, but Muse's R4b demonstrates only two values on one build. Implementation is **Codex adapter**, under the operator's priority. Code-mode companion, hook and tool-child scopes remain unverified. Until this adapter exists, `--network` refuses Codex with `network_scope_unsupported`.
-
-- **Status — D8 = (A), Ivan, 2026-10-02 05:44Z:** Muse **1.4.1-R4503.1** and **1.4.2-R4684.1** are **SUPPORTED with `muse-env-v1`**. This decision requires the adapter below and retains the evidence limits; it does not certify the generic patch alone or unverified child scopes.
-- **Evidence sources:** the integration owner on the verification runner, authoritative `D8-muse-results-R7.md`, verification event the recorded verification event, and `D8-muse-R6-sigkill-msg.txt`, verification event the recorded verification event (2026-10-02T05:33:20Z). These supersede conflicting text in `D8-muse-results.md`, `D8-muse-results-R6.md` and the stale round-2 Muse import. The per-build R6 table and row attribution are recorded in [harness verification](harness-verification.md#imported-final-d8-muse--muse-exec-and-launcher).
-- **Adapter and child evidence:** `muse-env-v1` is the generic patch plus injection of its **set half into each MCP server entry's `env` block**, plus hook-command wrapping during profile materialisation. R4 fails on **both builds**: MCP stdio children get `HOME LANG LOGNAME MUSE_SESSION_ID PATH PWD SHELL SHLVL TERM TMPDIR USER`, without any of the six proxy values or hostile values. R4b demonstrates explicit **`HTTPS_PROXY` and `NO_PROXY` on 1.4.1-R4503.1 only**, not a six-value/per-build mitigation dump. R7a's detailed **1.4.1** SessionStart hook run receives `HOME LANG LOGNAME PATH PWD SHELL SHLVL SSH_AUTH_SOCK TERM TMPDIR USER`, without proxy or hostile values; the Claude-compatible object schema has no per-hook `env` field. No separate 1.4.2 hook run is reported. Wrap **each** hook command as `env <set half> <cmd>`; this is a required mitigation, with no verified wrapping run in these sources.
-- **Control and launcher evidence:** R0, R1 and R2 are per build for **1.4.1-R4503.1 and 1.4.2-R4684.1**: Echo control exits 0 with no requests; update through the sink exits 1 with two `CONNECT api.meta.ai:443`; update through `127.0.0.1:9` exits 1 with connection refusal and no direct fallback. All three have zero non-loopback sockets. R3's detailed lowercase-only, uppercase-only and ALL_PROXY-only rows are **1.4.1 only**, each exit 1 with two sink requests and zero non-loopback sockets, testing the launcher's curl. The later message summarizes R3 as passing on both without separate 1.4.2 variant rows. R5 is **aggregate across both builds' R0–R4**, with zero sampled non-loopback sockets; sampling alone does not rule out a blocked direct attempt.
-- **R6 model-client evidence, per build:** the binary's own model catalog fetch, `https://api.meta.ai/muse-code/models`, sends exactly **one `CONNECT api.meta.ai:443`**, exits **1** with a transport error on 502, and has no retry/second attempt or non-loopback socket. This is reported for **1.4.1-R4503.1**, with **1.4.2-R4684.1 explicitly identical**. With proxy at `127.0.0.1:9`, each build exits **1**, with zero sink requests/sockets and the plain transport error. This verifies the catalog path, not completion of a model turn.
-- **R6 unreachable-proxy closure, per build:** the later message calibrates the SIGKILL detector: `nc` to `1.1.1.1:443` and direct `curl` to `api.meta.ai` exit **137**; `curl` through the dead proxy exits **7**; loopback is unaffected. **1.4.1-R4503.1 rc 1, no SIGKILL; 1.4.2-R4684.1 rc 1, no SIGKILL**, both with the proxy at `127.0.0.1:9`. the integration owner therefore closes R6 as no direct fallback attempt on this path, superseding the results file's initial detector limitation. These imported controls add no SIGKILL measurements to R0–R5 or hooks.
-- **Exclusion:** control-plane bridges are excluded from the adapter and configure their own transport explicitly (N11).
-- **Placement / owner:** the adapter lives in the launch plane's Muse plugin, **Muse adapter**, after D4 (**typed launch-plane hook (D4)**). Shared MCP config is never rewritten.
-- **Open gap:** R7b, shell/tool children, was not reachable offline. Track R7b shell/tool-child verification and the integration owner **R7b shell/tool-child verification**, blocked on the session-host owner's PTY support. D8 = (A) retains this gap explicitly.
+- **Claude scope (sink method):** API-target routing observed, including lowercase, uppercase and `ALL_PROXY` variants; MCP stdio children inherit the proxy values. All model-turn rows stopped at the login gate; authenticated turns, fallback, hooks and tool scopes remain unverified. The observed entrypoint is `claude -p`; interactive mode is not covered. See [historical transport evidence](harness-verification.md#historical-transport-evidence) for limits.
+- **Codex scope (sink method):** model WS/HTTPS routing through the proxy observed, with proxy-preserving fallback. MCP stdio children do not inherit the values; explicit server `env` blocks deliver them. `codex-env-v1` is the generic patch plus its set half injected into each MCP server entry's `env` in launch-private materialised configuration, never shared configuration. Companion, hook and tool-child scopes remain unverified. Until this adapter exists, `--network` refuses Codex with `network_scope_unsupported`.
+- **Muse scope:** supported with `muse-env-v1`, which is the generic patch plus per-server `env` injection and hook-command wrapping. MCP inheritance fails without the adapter; the mitigation demonstration covers only part of the matrix. Shell/tool-child verification remains an open gap. Control-plane bridges are excluded from the adapter and configure their own transport explicitly (N11). Shared configuration is never rewritten.
 
 ### 2.2 task-board spawn and runner: `skill-project-management`
 
-**Lands in:** N-C1a explicit subagent selection / N-C2 defaults. Per **operator decision, 2026-10-02 07:21Z**, N-C1 integration is split into **N-C1a**, subagent spawn, needing **typed launch-plane hook (D4) + v0.2.0 only**, and **N-C1b**, session hosts, after **M3 / LP Phase 0** (§2.3). Network-profile consumers get priority after the operator's higher-priority items; N-B is the launcher milestone. `--network <name>` selects an id with explicit origin; later `runtimes.toml network` and `spawn.network.default` supply defaults. The detached runner inherits the orchestrator env (R/runtime.go:4764–4766); it is the destination host responsible for child unsets.
+**Lands in:** N-C1a explicit subagent selection / N-C2 defaults. Per **operator decision, 2026-10-02 07:21Z**, N-C1 integration is split into **N-C1a**, subagent spawn, needing **typed launch-plane hook (D4) + v0.2.0 only**, and **N-C1b**, session hosts, after **M3 / LP Phase 0** (§2.3). Network-profile consumers get priority after the operator's higher-priority items; N-B is the launcher milestone. `--network <name>` selects an id with explicit origin; later runtime and spawn defaults supply defaults. The detached runner inherits the orchestrator env; it is the destination host responsible for child unsets.
 
-- **Preparation/application — advice §2.2(1), partly accepted:** “also serves the dry run” is correct; “does no I/O” is not (B/internal/spawn/launch_plan.go:202 calls catalog-reading `localModelsPeek`). Resolve/validate after slot claim (R/runtime.go:1905), then prepare, persist Record and refresh patch before every attempt at :2024. Carry only an ephemeral Config `EnvPatch` (`json:"-"`) to the composer. Apply last after `RuntimeControlEnvironment`, before B/internal/spawn/launch_plan.go:488, updating owned literals too. Real `planCommand` (spawn.go:1063–1071) and dry-run `BuildArgs` (:1414, call :1418) share it; plans skip probes. The launch-plane owner lands final application through D4; N-C1a no longer waits for M2/M3 (operator decision). Other runner/cmd changes stay outside that zone. Earlier `/goal` probes (B/cmd/spawn.go:2343 → cmd/spawn_runtime.go:850–870) need resolution/patching **before their own spawn**, then freshness checks after the slot. A future BuildPlan hook replaces the final call only under §1's overlay proof.
-- **Manifest/rollback — advice §2.2(4):** “old binaries drop unknown keys silently” (R/runtime.go:4870–4875). Add Record beside `runtime_provenance` (:337; manifest :325–436), copy through `newSpawnRunManifest` (:803,840), `spawnConfigFromManifest` (:3205–3259), and `cloneSpawnRunSuccessor` (R/directives.go:743,892–979). `NetworkAccess` (:403) remains the codex sandbox flag. Require implementation round-trip coverage across all three paths and prohibit rollback of profiled runs to unaware binaries: they lose managed provenance and inherit ambient routing; a schema field cannot protect an old decoder.
-- **Suites — advice §2.2(3):** “Make both paths build the env the same way.” Do not apply harness patches to validation suites; share suite-environment construction. R/changerequest.go:271 → B/internal/changerequest/validation.go:189 strips selectors; B/internal/integration/validation.go:423 does not. Neither strips proxies, so different egress is possible, not inevitable. Inherited-route evidence is decided (operator decision D5): suite evidence records the route as ref and digest, or `ambient`, never proxy values. Keep raw-environment integration milestone within its existing scope.
-- **Control plane — advice §2.2(2), subsidiary claim REJECTED:** “The runner's own HTTP to board-server also picks up that proxy”. B/internal/remote/client.go:87–95 installs an explicit `http.Transport` with nil `Proxy`; that client does not consult inherited proxy variables. Preserve this separation and explicitly configured helper transports (N11).
-- **Managed goal launches** (B/cmd/codex_goal_spawn.go:152) carry a selector envelope to the session host, which resolves and applies locally (§2.3); never send an endpoint or source-host patch.
+- **Preparation/application — advice §2.2(1), partly accepted:** “also serves the dry run” is correct; “does no I/O” is not (preparation reads the catalog). Resolve and validate on the destination after slot claim, then prepare, persist the Record and refresh the patch before every attempt. Carry only an ephemeral patch to the composer; never persist it. Apply last, after final environment composition and runtime control additions, updating owned literals too. Real plan commands and dry-run builds share the same preparation; plans skip probes. The launch-plane owner lands final application through D4; N-C1a no longer waits for M2/M3 (operator decision). Early goal probes need resolution and patching **before their own spawn**, then freshness checks after the slot. A future plan hook replaces the final call only under §1's overlay proof.
+- **Manifest/rollback — advice §2.2(4):** old binaries drop unknown keys silently. Retain the Record beside runtime provenance in run manifests, copy it through manifest creation, config restoration and successor cloning, and keep the existing sandbox flag separate. Require implementation round-trip coverage across all three paths and prohibit rollback of profiled runs to unaware binaries: they lose managed provenance and inherit ambient routing; a schema field cannot protect an old decoder.
+- **Suites — advice §2.2(3):** “Make both paths build the env the same way.” Do not apply harness patches to validation suites; share suite-environment construction. Inherited-route evidence is decided (operator decision D5): suite evidence records the route as ref and digest, or `ambient`, never proxy values. Keep raw-environment integration milestone within its existing scope.
+- **Control plane — advice §2.2(2), subsidiary claim REJECTED:** “The runner's own HTTP to board-server also picks up that proxy”. Control-plane board-server and helper clients MUST use explicitly configured transports that do not consult inherited harness proxy variables (N11).
+- **Managed goal launches** carry a credential-free selector envelope to the session host, which resolves and applies locally (§2.3); never send an endpoint or source-host patch.
 
 #### Inherited selection: Q2
 
-**Decided (operator decision D2): option (a), inherited origin; N3/N4 amended before N-C1.** Advice §2.2(2), “an inherited binding is a mandatory default”, identifies real leakage: an empty patch under a profiled parent retains ambient proxies without provenance. Use durable reference inheritance, not a new ambient `TASK_BOARD_NETWORK` contract or inference from proxy values. Advice Q2, “Use the existing plumbing”, needs qualification: existing goal lookup (B/cmd/spawn_goal_launch.go:70–90) loads state/goal, is queued-only (cmd/spawn.go:1679–1685), and returns nil for non-goal parents (cmd/spawn_goal_launch.go:129–131).
+**Decided (operator decision D2): option (a), inherited origin; N3/N4 amended before N-C1.** An inherited binding is a mandatory default: an empty patch under a profiled parent retains ambient proxies without provenance. Consumers MUST use durable reference inheritance, never a new ambient contract or inference from proxy values, and MUST authenticate and preserve the parent selection across every eligible launch path, including launches whose parent is not a board goal.
 
-Persist **parent identity plus resolved reference** during reservation (B/cmd/spawn.go:2804); restore through `QueuedPreparation` (:3089–3127), and copy through R/runtime.go:3205, R/limit_retry.go:413 and R/directives.go:870–979. Review fan-out re-enters the pipeline (B/cmd/spawn_review_fanout.go:180). Retries bypass parent lookup (R/runtime.go:2021–2063): rebuild managed retry envelopes (R/limit_retry.go:447,524,575) and rebind successor envelopes (R/directives.go:875). Validate manifest/control identity and allowed sets; mutable `TASK_BOARD_RUN_ID` alone is not authorization (A/pkg/agentic/runcontext.go:31–44 is vendored at v0.5.30, B/go.mod:10).
+Persist **parent identity plus resolved reference** during reservation and preserve it across preparation, runtime config, retry limits, successor directives and review fan-out. Every retry MUST rebuild its managed envelope from the preserved parent selection, and every successor envelope MUST be rebound to it, rather than inheriting ambient state. Validate manifest/control identity and allowed sets; a mutable run id alone is not authorization.
 
 Primary sessions require authenticated session-record lookup or explicit child selection; ambient session markers alone do not authorize inheritance. Non-board profiled parents need an explicit carrier contract too. Use `Request.Inherited` and `OriginInherited`, with precedence **explicit → inherited → runtime-default → profile-binding → project-default → operator-default**; N3/N4 and Record's closed origin vocabulary now include `inherited`. The library never discovers the reference from the environment. Origin and transport are independent. A parent on A can explicitly select B for a child, subject to host authorization.
 
 #### Retry and recovery: Q3
 
-**Decided (operator decision D1):** advice Q3, “Do not return it as a launch error”. Resolve unknown/denied first; changed digest is terminal `network_profile_drift` before each attempt, queue release, successor launch and managed retry preflight. Ordinary launch errors enter recovery (R/runtime.go:2086–2099), so drift must bypass it. Preserve reference/digest/assurance across provider reselection; deliberately changed adapters get new attempt Records only with unchanged digest. Add a retry-specific check: ordinary `CheckReattach` rejects adapter changes (N/pkg/binding/binding.go:165–174). Recovery/resume still uses full event-appropriate equality.
+**Decided (operator decision D1):** advice Q3, “Do not return it as a launch error”. Resolve unknown/denied first; changed digest is terminal `network_profile_drift` before each attempt, queue release, successor launch and managed retry preflight. Ordinary launch errors enter recovery, so drift must bypass it. Preserve reference/digest/assurance across provider reselection; deliberately changed adapters get new attempt Records only with unchanged digest. Add a retry-specific check: ordinary `CheckReattach` rejects adapter changes. Recovery/resume still uses full event-appropriate equality.
 
 #### Explicit direct
 
 **Decided (operator decision D3): option (b), v0.2.0, named `kind = "direct"`.** A profiled parent can choose its own profile, another profile, or a named direct profile for any child, as an external decision module chooses. Direct is one more profile id in the host's allowed set; it retains the actual reference and origin. Absence remains unmanaged and preserves ambient env.
 
-A direct profile forbids endpoint, bypass hosts and probe target, needs confirmation like every widening entry, and has a canonical digest of schema + kind + credential mode. Its patch is unset-only; its managed Record retains ref, digest, cooperative assurance and skipped TCP/CONNECT/TLS probes. Host authorization and confirmation still apply. Direct does not guarantee OS-level directness (N11). Binding equality and drift rules are unchanged.
+A direct profile forbids endpoint, bypass hosts and probe target, needs confirmation like every widening entry, and has a canonical digest of schema + kind + credential mode plus `sensitive_egress` only when true (§1.4, appendix §1). Its patch is unset-only; its managed Record retains ref, digest, cooperative assurance and skipped TCP/CONNECT/TLS probes. Host authorization and confirmation still apply. Direct does not guarantee OS-level directness (N11). Binding equality and drift rules are unchanged.
 
 ### 2.3 the session host: `skill-project-management`
 
-**Lands in:** N-C1b (N-C1 integration), after M3 / LP Phase 0 (operator decision). Hosts build from daemon `os.Environ()` (H/codex_host.go:161–187,261–268; claude_host.go:700–727,2427–2450). Apply one shared helper **last** to `command.Env`, after TMPDIR at codex :178–179 and claude :710–711.
+**Lands in:** N-C1b (N-C1 integration), after M3 / LP Phase 0 (operator decision). Hosts build child environments from the daemon environment. Apply one shared helper **last** to each child env, after temporary-directory setup.
 
-- **Carrier — advice §2.3(2):** “Send the ref, the origin and the expected digest”. Use that credential-free selector envelope in `OwnerRunContext` (H/launch_plan.go:123–136) and `PrimarySessionLaunchPlan` / `CodexSessionLaunch` (:74–86,138). The daemon re-resolves against its own catalog, confirmations, allowed set and verified tuple, checks the expected digest and uses §1's preflight branch locally: no probe for direct or plans/dry runs (all three steps `skipped`); otherwise probe. Strict decoders (:172,189,441; claude_host.go:426) fail closed. Bump `controlProtocolVersion` from 8 (H/types.go:31) and use client.go:71–100 restart diagnostics.
-- **Record/reuse — advice §2.3(1):** the live-host check was already proposed; add startup reconciliation too. Store Record in `ProviderHostRecord.Opaque` snapshots (H/claude_host.go:840; codex_host.go:336). Check before all `ensureHostLocked` paths (H/manager.go:1584): live fast path :1589–1604, Restore :1625, Launch :1678–1690; also before `restoreAndReconcileLocked` calls Restore at :1981 (:1964–1981). Existing unmanaged hosts refuse profiled assignments. Stop-only Restore paths (:918,2035) remain usable.
-- **Q4 — decided (operator decision D1):** advice Q4, “the session host starts one app-server per session”. Fresh sessions get independent bindings (H/manager.go:1589,1751; codex_host.go:341); the legacy B/cmd/codex.go:189–252 shares an app-server. First-release live-host attach/restore requires equal binding or refusal; existing-run Restore is `EventReattach`, not automatically `EventNewAssignment`, so drift and full equality apply.
-- **Daemon startup — advice §2.3(3):** refuse startup from an identified profiled run **before stripping its identity**. B/cmd/session.go:591–592,653–673 strips run ids, not proxies; H/detached_launch.go:72–76 retains the starter env. Blanket stripping ordinary operator proxies would break unmanaged compatibility. Each managed session still patches last.
-- **Auxiliary harnesses — advice §2.3(4):** “must use the session's patch.” Pass the same resolved session context to Claude preflight (H/claude_host.go:2416–2420) and assay (claude_context_assay.go:580–582); refusals stop those subprocesses too. Audit codex context (codex_context.go:1376–1382), legacy codex (B/cmd/codex.go:189,238–252), visible clients (:431–436; cmd/codex_manager.go:270–272), Claude goal probe (B/internal/spawn/claude_goal.go:94–123) and Antigravity preflight (agy_preflight.go:90). Every exec must apply the session context or have evidence it is outside harness routing.
+- **Carrier — advice §2.3(2):** “Send the ref, the origin and the expected digest”. Use that credential-free selector envelope in the run-context and session-launch plans. The daemon re-resolves against its own catalog, confirmations, allowed set and admitted tuple, checks the expected digest and uses §1's preflight branch locally: no probe for direct or plans/dry runs (all three steps `skipped`); otherwise probe. Strict decoders fail closed. The destination MUST refuse envelopes with an unsupported schema or an unnegotiated capability.
+- **Record/reuse — advice §2.3(1):** compare the durable binding before every reuse, restore and start, and reconcile at startup too. The host MUST check the stored Record against the freshly resolved binding on every host-reuse path, including live reuse, restore and launch. Existing unmanaged hosts refuse profiled assignments. Stop-only restore paths remain usable.
+- **Q4 — decided (operator decision D1):** advice Q4, “the session host starts one app-server per session”. Fresh sessions get independent bindings; the legacy shared app-server path is excluded. First-release live-host attach/restore requires equal binding or refusal; existing-run restore is `EventReattach`, not automatically `EventNewAssignment`, so drift and full equality apply.
+- **Daemon startup — advice §2.3(3):** a daemon MUST NOT start from an identified profiled run: refuse that startup before the run identity is detached. Do not strip ordinary operator proxies at startup; blanket stripping would break unmanaged compatibility. Each managed session still applies the session patch last.
+- **Auxiliary harnesses — advice §2.3(4):** “must use the session's patch.” Pass the same resolved session context to preflight and assay subprocesses; refusals stop those subprocesses too. Audit every other harness-adjacent exec (context builders, legacy launchers, visible clients, goal probes, third-party preflights). Every exec must apply the session context or have evidence it is outside harness routing.
 
-Also audit launcher release probes (L/cmd/curator-run/main.go:334,353 → A/internal/toolprobe), engine-status subprocess (A/pkg/localruntime/client.go:54) and the daemon intermediate above. Version probes need evidence of no network work or their resolved patch. Preparation/composition subprocesses (B/cmd/claude_manager.go:230, codex_manager.go:215; L/internal/fragment/resolve.go:98) remain outside harness routing (N5); `curator network exec` follows the same final application rule.
+Also audit launcher release probes, engine-status subprocesses and the daemon intermediate above. Version probes need evidence of no network work or their resolved patch. Preparation/composition subprocesses remain outside harness routing (N5); `curator network exec` follows the same final application rule.
 
 ### 2.4 curator-run: `curator-agent-launcher`
 
 **Lands in:** N-B. The Curator and launcher owners coordinate N-B; the launcher owner leads its implementation; consumer representatives advise. Ownership is unchanged (operator decisions).
 
-- Add `--network <name>` to L/internal/cli/cli.go `Invocation` (:162–195), `valueFlags` (:223–231), and SPEC §3; accept identifiers, not URLs.
-- Resolve/validate after admitted `plan.Build` (L/cmd/curator-run/main.go:255), before `ComposeAdmittedPlan` (:288), using the original operator env. Probe only a real supported launch in untracked mode using a proxy profile; `kind = "direct"` skips probes. Refusals stop launch without fallback; tracked managed selection refuses before a source-host probe.
-- In `Compose`, after all overlays (:91–110), before materializing Env (L/internal/composition/composition.go:113), delete unset names case-insensitively from both env and literals, add set to both, reject managed proxy EnvNames/overlays, and recheck disjointness. Direct exec uses the patched env (L/internal/execution/execution.go:154); emit sanitized Record provenance.
-- Tracked mode carries only set literals and a proposed `works.relux.curator.network` Record extension (execution.go:52–58). **Refuse every managed tracked selection, including defaults, with `network_scope_unsupported` until §2.5's destination capability exists** (N9). No fallback or silent loss of tracking. Curator preparation (env resolve/install/repair) remains outside this patch (N5).
+- Add `--network <name>` to the CLI invocation and value flags; accept profile identifiers, not URLs.
+- Resolve and validate after the admitted plan build, before composing the admitted plan, using the original operator env. Probe only a real supported launch in untracked mode using a proxy profile; `kind = "direct"` skips probes. Refusals stop launch without fallback; tracked managed selection refuses before a source-host probe.
+- In composition, after all overlays and before materializing env, delete unset names case-insensitively from both env and literals, add set to both, reject managed proxy env names/overlays, and recheck disjointness. Direct exec uses the patched env; emit sanitized Record provenance.
+- Tracked mode carries only set literals and a proposed `works.relux.curator.network` Record extension. **Refuse every managed tracked selection, including defaults, with `network_scope_unsupported` until §2.5's destination capability exists** (N9). No fallback or silent loss of tracking. Curator preparation (env resolve/install/repair) remains outside this patch (N5).
 
 ### 2.5 ax launch plan and session host
 
-**Q5 — D6 DEFERRED, Ivan, 2026-10-02 05:36Z:** deferred until ax implements session launch. The destination session-launch capability (ax) milestone tracks carrier options, destination duties and refusal until then. Tracked `--network` keeps refusing (N9). Keep the Record extension (S/decisions/0013-execution-ownership-and-launch-plans.md:208–213), but require a negotiated, versioned network capability at the destination. Ax implementation owners enforce it; session-host owners own any bridge. X/README.md:5–7 is specification-only; ax proper (§5.1/§14.1) is absent from the supplied clones. Extension preservation alone proves no enforcement.
+**Q5 — D6 DEFERRED, Ivan, 2026-10-02 05:36Z:** deferred until ax implements session launch. The destination session-launch capability (ax) milestone tracks carrier options, destination duties and refusal until then. Tracked `--network` keeps refusing (N9). Keep the Record extension, but require a negotiated, versioned network capability at the destination. Ax implementation owners enforce it; session-host owners own any bridge. The ax host readme is specification-only; session launch proper is absent. Extension preservation alone proves no enforcement.
 
-The destination resolves/authorizes locally, compares expected digest and verifies its adapter tuple. It uses §1's preflight branch: direct or plans/dry runs skip all three steps; only real proxy launches probe. It applies the patch to its final env (direct unsets only, with no set; proxy unsets then applies fresh set) and persists Record. Audit start/resume/fork/re-adoption; reject unsupported schemas or unaware hosts. Suppress conflicting old proxy literals before fresh application: 0013:304–313 otherwise replays them verbatim. Resume drift refuses `network_profile_drift` (environment-drift precedent :635–645); attach/resume uses full equality.
+The destination resolves and authorizes locally, compares the expected digest and verifies its adapter tuple. It uses §1's preflight branch: direct or plans/dry runs skip all three steps; only real proxy launches probe. It applies the patch to its final env (direct unsets only, with no set; proxy unsets then applies fresh set) and persists the Record. Audit start/resume/fork/re-adoption; reject unsupported schemas or unaware hosts. Suppress conflicting old proxy literals before fresh application, otherwise they replay verbatim. Resume drift refuses `network_profile_drift`; attach/resume uses full equality.
 
-Set literals are non-secret and disjoint from `env_names` (0013:193–206). Canonical proxy spellings are reserved (C/internal/contextpkg/contextpkg.go:427; S/schemas/v1/agent-mcp-v1.schema.json:59); consumers must reject **mixed-case** proxy names too. N9 stays closed until destination conformance proves these rules.
+Set literals are non-secret and disjoint from `env_names`. Canonical proxy spellings are reserved; consumers must reject **mixed-case** proxy names too. N9 stays closed until destination conformance proves these rules.
 
 ### 2.6 Curator umbrella and trust
 
-`curator network …` dispatches to `curator-network` (C/cmd/curator/umbrella.go:120; S/protocol/environments.md §11, :3377). Distinguish revision A, PATH selection with an outside-roots warning, from revision B, roots-only selection (:3414–3420). No provider-selection flags are required; N-A implements `--json` and a real `--version`. Provider installs follow the provider-installation milestones in curator-spec and curator.
+`curator network …` dispatches to `curator-network` (umbrella dispatch). Distinguish revision A, PATH selection with an outside-roots warning, from revision B, roots-only selection. No provider-selection flags are required; N-A implements `--json` and a real `--version`. Provider installs follow the provider-installation milestones in curator-spec and curator.
 
-Presence-key signing for `confirm` (curator-trust §10) is not available. N-A already implements a local digest-bound confirmations ledger and agent-session refusal; its interim policy remains TODO(decision) in the implemented appendix/API. When curator-trust lands, replace the ledger with the trust store.
+Presence-key signing for `confirm` is not available. N-A already implements a local digest-bound confirmations ledger and agent-session refusal; its interim policy remains TODO(decision) in the implemented appendix/API. When curator-trust lands, replace the ledger with the trust store.
 
 ## 3. Ownership and order
 
@@ -203,7 +304,7 @@ Presence-key signing for `confirm` (curator-trust §10) is not available. N-A al
 | task-board subagent spawn / runner, N-C1 | spawn-runtime owner / skill-project-management | N-C1a | D4 + v0.2.0 only (operator decision); inherited N3/N4 amendment (D2) included in v0.2.0 |
 | session hosts, N-C1 | session-plane owner / skill-project-management | N-C1b | M3 / LP Phase 0 (operator decision) |
 | runtime/project/operator defaults | selection + launch-plane owners | N-C2 | M4 operator layer and bindings catalog |
-| trust-store confirm | trust owner / curator-trust | after N-A | curator-trust §10 |
+| trust-store confirm | trust owner / curator-trust | after N-A | trust-store confirmations capability |
 | managed gateway | library/gateway owner / this repo | N-D | N-A; no N-B/C dependency |
 
 Consume the library **by tag**, never `replace` or `go.work`; `v0.2.0` is the first public release; v0.1.0 is retired (operator decision, 2026-10-02). Before adopting v0.2.0, follow [the migration requirements](../README.md#upgrading-to-v020): upgrade every catalog reader before adding direct, remove direct entries before downgrading, use keyed `resolve.Request` literals, admit `inherited` origins and allow the additive `check --json` `kind` field. The contract schema strings remain v1 for these pre-1.0 additive vocabulary changes. **Q6 — decided (operator decision D7):** role-based ownership stays unchanged; the Curator and launcher owners coordinate N-B; the launcher owner leads its implementation; consumer representatives advise (operator decisions).
@@ -214,9 +315,10 @@ Consume the library **by tag**, never `replace` or `go.work`; `v0.2.0` is the fi
 2. Set values are owned non-secret literals; proxy names never travel as env_names, including mixed case.
 3. Selection carries an authorized id, never a proxy URL; resolve locally and never infer a ref from ambient proxy values.
 4. Refusals stop workload spawn/preflight. No hidden fallback to direct, another profile/account or automatic recovery on drift; mid-run drops go to the run owner.
-5. Manifests/logs keep Record only, never Binding/Patch, env, credentials, endpoints or request bodies.
+5. The managed network member keeps Record only, never Binding/Patch, env, credentials, endpoints or request bodies; the session envelope additionally retains the sibling `adapter_provenance` for unqualified builds (§1.4).
 6. Control-plane helpers (stdio MCP, Apiary bridge, board-server client) configure transport explicitly, outside inherited harness proxies (N11).
 7. No selection preserves today's unmanaged behavior exactly. It does not guarantee direct egress or authorize opting out of inherited selection.
+8. Unqualified builds show their exact provenance text at launch and store the typed provenance in the session record (§1.4). Sensitive-egress profiles evaluate strict; the known-bad list fails closed.
 
 ## 5. Decision card after advice
 
@@ -234,15 +336,16 @@ Rev 2 is adopted as D1. Consumer implementation remains DRAFT; the following dec
 | D8 / Q7 | decided (A) (Ivan, 2026-10-02 05:44Z): Muse 1.4.1-R4503.1 and 1.4.2-R4684.1 SUPPORTED with `muse-env-v1`; R7b shell/tool-child gap remains tracked in R7b shell/tool-child verification (§2.1) |
 | D9 | decided (operator decision D9): Decision 0019 adopted-status erratum fixed in both language specs and README |
 | D10 | decided (operator decision D10): v0.2.0 is the first public release; v0.1.0 is retired; consumers use tags (§3) |
+| Option C | interim default: new builds of known vendor lines run unqualified with visible provenance and a fail-closed known-bad check (§1.4); the owner may still select central qualification (A) instead |
 
 Q3 terminal retry drift and Q4 independent fresh sessions / equal-or-refuse live hosts are part of adopted rev 2 (D1).
 
 ### Changes in rev 2
 
-- Corrected/pinned drifted anchors and added exec audits; Decision 0019 is adopted, with environment ownership still open (§1/§2.1–§2.6).
-- Moved preparation/persistence to the runner, covered early probes, durable inheritance and terminal retries; qualified existing plumbing and rejected the board-client HTTP proxy claim with nil-Proxy evidence (advice §2.2(1–2), Q2–Q3).
+- Corrected cross-references and added exec audits; Decision 0019 is adopted, with environment ownership still open (§1/§2.1–§2.6).
+- Moved preparation/persistence to the runner; required early-probe preparation, durable inheritance preserved across launches, retries and successors, and terminal retry drift; kept the board-client transport explicitly configured (advice §2.2(1–2), Q2–Q3).
 - Added suite separation/evidence decision and rollback/round-trip requirements; retained normalized credential refusal and Record-only serialization (advice §2.2(3–5)).
-- Added reconciliation, local selector resolution/protocol bump, profiled-startup refusal and session-patched preflight/assay; corrected the fresh-session premise (advice §2.3(1–4), Q4).
+- Added startup reconciliation, local selector resolution with refusal of unsupported envelopes, profiled-startup refusal and session-patched preflight/assay; corrected the fresh-session premise (advice §2.3(1–4), Q4).
 - Replaced unanswered questions with the recommendations adopted by operator decision, 2026-10-02, initially deferred explicit direct (superseded by D3 below), corrected mixed-case reservation, trust dispatch, N-A status, overlay migration and N-D dependency; replaced the ownership-transfer assumption with unchanged role ownership (Q1, Q5–Q7).
 - Recorded adoption and decisions operator decision D1, D2, D4, D5, D7–D10 on 2026-10-02; subsequent D6 and D8 outcomes are recorded below.
 - Recorded D3 decided option (b), named direct shipped in v0.2.0 (2026-10-02 05:26Z).

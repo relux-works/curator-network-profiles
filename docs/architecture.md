@@ -384,3 +384,25 @@ muse's closed allowlist is such an adapter, not a change to the generic one.
 13. Unexpected internal failures use the existing `network_configuration_conflict`
     code with a fixed sanitized detail instead of extending the closed set.
     `network_file_unreadable` covers cannot read or write, not just reads.
+
+## Adapter evidence boundary
+
+`pkg/adapterprobe` hashes caller-supplied immutable native snapshots and decides
+admission with canonical `sha256-<hex>` adapter BuildIDs. It never opens a
+binary path, starts a process or persists cache state. Fresh qualification
+returns typed Unsupported until trusted supervision can enforce credential/IPC,
+descriptor, immutable execution, process-tree and deadline-bounded cleanup rules.
+`Evaluate` is the sole adapter operation for plans, direct profiles, dry runs,
+real launches and live reattach. Endpoint preflight never grants permission to
+execute a harness. A real launch must execute exactly the admitted snapshot,
+with independent specialized-adapter and child-scope authorization. See
+[integration](integration-contract.md).
+
+Option-C launch policy (`adapterprobe.Evaluate`) returns qualified for
+exact allowlisted or evidenced builds, unqualified with a typed
+provenance record for new builds of known vendor lines, and refused
+otherwise. A content pin alone never qualifies. Sensitive-egress profiles
+default to strict with no optimistic downgrade; the SHA-256 known-bad check
+fails closed through the shared `adapter-knownbad.json` loader; cache keys
+stay digest-only. The optimistic evidence lookup is the reserved seam for
+central qualification.

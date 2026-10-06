@@ -29,11 +29,14 @@ A profile is normalized before anything else looks at it:
 | `bypass_hosts` | forbidden on direct, even empty; for external-http-proxy, each entry trimmed and lowercased; deduplicated; sorted in byte order; MUST contain `127.0.0.1`, `::1`, `localhost`; an empty entry, `*`, a comma or whitespace inside an entry, or a character outside `[a-z0-9._:[]/-]` is refused |
 | `credential_mode` | `none` (the only mode of this version; a credential in the endpoint is refused without being echoed) |
 | `probe_target` | forbidden on direct, even empty; for external-http-proxy, optional `host:port`; **not** digested |
+| `sensitive_egress` | optional boolean on both kinds, default false; when true, adapter policy defaults to strict (§3.8); digested only when true |
 
-For a proxy profile the digest covers exactly `schema`, `kind`, `endpoint`, `bypass_hosts` and
-`credential_mode`. For direct it covers only `schema`, `kind` and `credential_mode`. It MUST NOT cover the name, `probe_target`, probe results,
+For a proxy profile the digest covers exactly `schema`, `kind`, `endpoint`, `bypass_hosts`,
+`credential_mode` and, only when true, `sensitive_egress`. For direct it covers only `schema`, `kind`,
+`credential_mode` and, only when true, `sensitive_egress`. It MUST NOT cover the name, `probe_target`, probe results,
 timestamps, lease ids or generations. A digest binds the configuration, not
-the proxy's actual egress.
+the proxy's actual egress. Adding or removing the `sensitive_egress` declaration
+changes the digest and MUST require `curator network confirm` at the new digest.
 
 ### 1.2 Canonical form
 
@@ -44,6 +47,11 @@ requires:
 ```text
 {"bypass_hosts":[<sorted entries>],"credential_mode":"none","endpoint":"<endpoint>","kind":"external-http-proxy","schema":"relux-network-profiles-v1"}
 ```
+
+When `sensitive_egress` is true, both forms append `,"sensitive_egress":true`
+before the closing brace (`schema` sorts before `sensitive_egress` in byte
+order). When false or absent the key is omitted, so every pre-existing digest
+is unchanged (D10, D11).
 
 Direct has exactly these three keys, in byte order:
 
@@ -402,6 +410,72 @@ Digest: `sha256:90781b39b78cd17c032c8f75f8936a6364958375b777466cb260336f9bc169e6
   },
   "canonical": "{\"credential_mode\":\"none\",\"kind\":\"direct\",\"schema\":\"relux-network-profiles-v1\"}",
   "digest": "sha256:90781b39b78cd17c032c8f75f8936a6364958375b777466cb260336f9bc169e6"
+}
+```
+
+**D10** — sensitive egress is digested: D1 plus the declaration has a different digest.
+
+Canonical bytes: `{"bypass_hosts":["127.0.0.1","::1","localhost"],"credential_mode":"none","endpoint":"http://127.0.0.1:18081","kind":"external-http-proxy","schema":"relux-network-profiles-v1","sensitive_egress":true}`
+
+Digest: `sha256:d95a34aaa72ee43427192380d66277f40a69cded95a51584c26ef5aab25c690c`
+
+```json vector=D10
+{
+  "id": "D10",
+  "note": "sensitive egress is digested: D1 plus the declaration has a different digest",
+  "name": "egress-a-sensitive",
+  "input": {
+    "kind": "external-http-proxy",
+    "endpoint": "http://127.0.0.1:18081",
+    "bypass_hosts": [
+      "localhost",
+      "127.0.0.1",
+      "::1"
+    ],
+    "sensitive_egress": true
+  },
+  "normalized": {
+    "kind": "external-http-proxy",
+    "endpoint": "http://127.0.0.1:18081",
+    "bypass_hosts": [
+      "127.0.0.1",
+      "::1",
+      "localhost"
+    ],
+    "credential_mode": "none",
+    "sensitive_egress": true
+  },
+  "canonical": "{\"bypass_hosts\":[\"127.0.0.1\",\"::1\",\"localhost\"],\"credential_mode\":\"none\",\"endpoint\":\"http://127.0.0.1:18081\",\"kind\":\"external-http-proxy\",\"schema\":\"relux-network-profiles-v1\",\"sensitive_egress\":true}",
+  "digest": "sha256:d95a34aaa72ee43427192380d66277f40a69cded95a51584c26ef5aab25c690c"
+}
+```
+
+**D11** — named direct with sensitive egress: the declaration is digested.
+
+Canonical bytes: `{"credential_mode":"none","kind":"direct","schema":"relux-network-profiles-v1","sensitive_egress":true}`
+
+Digest: `sha256:f221989d57ffd7bf0384f102bdded6d167424c9608d24aa5ece6e152af91c4f4`
+
+```json vector=D11
+{
+  "id": "D11",
+  "note": "named direct with sensitive egress: the declaration is digested",
+  "name": "direct-sensitive",
+  "input": {
+    "kind": "direct",
+    "endpoint": "",
+    "bypass_hosts": null,
+    "sensitive_egress": true
+  },
+  "normalized": {
+    "kind": "direct",
+    "endpoint": "",
+    "bypass_hosts": null,
+    "credential_mode": "none",
+    "sensitive_egress": true
+  },
+  "canonical": "{\"credential_mode\":\"none\",\"kind\":\"direct\",\"schema\":\"relux-network-profiles-v1\",\"sensitive_egress\":true}",
+  "digest": "sha256:f221989d57ffd7bf0384f102bdded6d167424c9608d24aa5ece6e152af91c4f4"
 }
 ```
 
@@ -1755,6 +1829,88 @@ shows the inherited origin in a manifest-safe Record.
   "refusal": "network_profile_denied"
 }
 ```
+
+### 3.8 Adapter build policy (option C)
+
+`pkg/adapterprobe.Evaluate` is the only consumer path for admission: it
+decides one caller-supplied artifact snapshot against a policy for
+plans, direct profiles, dry runs, real launches and reattach. It
+performs no execution, opens no paths, reads no operator configuration,
+Keychain or tokens, and writes no state. The decision is `qualified`
+(allowlisted or evidenced), `unqualified` (with provenance) or `refused`
+with a typed reason; every refusal carries
+`network_scope_unsupported`. Build qualification (this section) is
+distinct from content pinning (an admission constraint on the selected
+bytes) and from scope authorization (the launch plane's independent
+adapter, entrypoint and child-scope ceiling).
+
+Modes are optimistic (default), strict and pinned. The effective mode
+is pinned when pinned, strict when strict or when the selected profile
+declares `sensitive_egress = true`, optimistic otherwise. A sensitive
+declaration MUST NOT be downgradable to optimistic by the mode flag. A
+sensitive profile admits only exact allowlisted builds; an identity-only
+pin never qualifies there and never yields unqualified.
+
+Precedence: a failed known-bad list refuses first; then policy validity,
+snapshot identity, known-bad membership (the embedded list is always
+enforced), known vendor line, recipe binding, and the content-pin
+admission constraint. A missing or different pin refuses with
+`pinned_miss` before every positive return, including allowlist and
+evidence hits. An allowlist establishes conformance only after the pin
+matches. A pin alone never qualifies: only an independently allowlisted
+or evidenced build is `qualified`. Strict refuses unknown builds
+(`strict_miss`); pinned non-sensitive consults scoped evidence and
+otherwise returns the exact pin as unqualified with its provenance;
+optimistic does the same without a pin. Unknown adapters and unknown
+vendor lines refuse (`adapter_unsupported`, `vendor_line_unsupported`).
+
+Consumers MUST show the exact operator text at launch and MUST store
+the typed provenance record (`relux-adapter-provenance-v1`) in the
+session record, not only in a log. The text, shown verbatim with the
+build's own fields, is:
+
+```text
+Unqualified build: <harness> <adapter>/<entrypoint> build <build> (recipe <recipe>) has no conformance evidence. Traffic may escape the proxy on this unproven build. This is a policy gap, not credential exposure.
+```
+
+The provenance record carries `schema`, `adapter` (adapter, harness,
+entrypoint), `build_id` (`sha256-<64 hex>`), `binary_sha256` (64 hex),
+`recipe`, `scope` and `outcome` (`unqualified_build`). The session
+envelope retains the existing network `Record` plus this record as a
+sibling `adapter_provenance` member (omitted when qualified); strict
+session decoders MUST allow the additive member.
+
+The known-bad check compares the binary SHA-256 against the merged
+embedded-plus-operator list. The operator file is
+`adapter-knownbad.json` under the explicitly supplied operator
+configuration root (for example, `~/.curator/adapter-knownbad.json`),
+or an explicitly configured path; the loader never discovers the root
+itself. The document, when present, MUST be a closed JSON object with
+exactly the required members `schema` and `sha256`:
+
+```json
+{"schema": "relux-adapter-knownbad-v1", "sha256": ["<64 hex>", "..."]}
+```
+
+Member spellings are exact and case-sensitive; duplicates, aliases,
+unknown members, missing or null members, wrong types and trailing data
+refuse as `knownbad_corrupt`. Entries MUST be 64 lowercase hex. A single
+well-formed unknown schema refuses as `knownbad_version_unsupported`. A
+match refuses with `known_bad_build`. An unreadable list (missing
+explicit file, permission, directory, non-regular file, too large)
+refuses as `knownbad_unreadable`. A genuinely absent optional default
+means the embedded set only. No failure silently passes. The shipped
+embedded list is currently empty and is always enforced, even when the
+operator supplies an empty set.
+
+Cache keys are exactly the binary SHA-256, never a version string.
+The optimistic evidence lookup is the seam for central qualification:
+a future signed-evidence source plugs in ahead of the unqualified
+fallback. Migration for the `sensitive_egress` declaration follows
+the reader-first rule: upgrade every catalog reader before adding the
+field, allow the additive `show --json` key, use keyed literals for the
+extended `netprofile.Input` and `netprofile.Profile` structs, and remove
+the field before rollback (see the README migration notes).
 
 ## 4. Engine coverage (spec N12)
 

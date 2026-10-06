@@ -29,13 +29,13 @@ How each process owner applies the patch, where the binding is recorded, and how
 
 ## Dependencies
 
-Per the operator decision (2026-10-02 07:21Z), N-C1 is split: N-C1a (subagent spawn) needs the typed launch-plane hook (D4) + v0.2.0 only; N-C1b (session hosts) follows M3 / LP Phase 0. Network-profile consumers get priority after the operator's higher-priority items. N-C2 needs M4 (operator layer and bindings). The Apiary tool bridge must keep its own transport outside the harness's profile (NP-N11).
+Per the operator decision (2026-10-02 07:21Z), N-C1 is split: N-C1a (subagent spawn) needs the typed launch-plane hook + v0.2.0 only; N-C1b (session hosts) follows M3 / LP Phase 0. Network-profile consumers get priority after the operator's higher-priority items. N-C2 needs M4 (operator layer and bindings). The Apiary tool bridge must keep its own transport outside the harness's profile (NP-N11).
 
 Launch-plane tracking for N-B / N-C1a (exact tuples and scope limits: `docs/integration-contract.md` §2.1):
 
-- **Claude transport support:** allowlist `claude-code` 2.1.287 / exec (`claude -p`) with `generic-env-v1`; authenticated turns, hooks, tool children and interactive mode remain unverified.
+- **Claude transport support:** historical scope evidence for `claude-code` / exec (`claude -p`) with `generic-env-v1` (observed transport rows in [historical transport evidence](../docs/harness-verification.md#historical-transport-evidence); the `2.1.287` label is a scope note, not an approval). Under the option-C precedence ([integration §1.4](../docs/integration-contract.md#14-adapter-build-policy-option-c)), new builds of this known line run unqualified with provenance; exact `AllowedBuild` entries require independent qualification of the artifact bytes and MUST NOT be derived from the version label. Authenticated turns, hooks, tool children and interactive mode remain unverified.
 - **Codex adapter:** implement required `codex-env-v1` for `codex-cli` 0.159.0 / exec: generic patch plus per-server MCP env injection, under the operator's priority; until it exists, `--network` refuses Codex (`network_scope_unsupported`).
-- **Muse adapter:** implement `muse-env-v1` for Muse 1.4.1-R4503.1 / 1.4.2-R4684.1 after the typed launch-plane hook (D4): per-server MCP env injection and hook-command wrapping; shell/tool-child gap remains R7b shell/tool-child verification.
+- **Muse adapter:** implement `muse-env-v1` for Muse 1.4.1-R4503.1 / 1.4.2-R4684.1 after the typed launch-plane hook: per-server MCP env injection and hook-command wrapping; shell/tool-child gap remains R7b shell/tool-child verification.
 
 ## Repository
 

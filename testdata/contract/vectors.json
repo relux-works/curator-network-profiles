@@ -707,6 +707,54 @@
       },
       "canonical": "{\"credential_mode\":\"none\",\"kind\":\"direct\",\"schema\":\"relux-network-profiles-v1\"}",
       "digest": "sha256:90781b39b78cd17c032c8f75f8936a6364958375b777466cb260336f9bc169e6"
+    },
+    {
+      "id": "D10",
+      "note": "sensitive egress is digested: D1 plus the declaration has a different digest",
+      "name": "egress-a-sensitive",
+      "input": {
+        "kind": "external-http-proxy",
+        "endpoint": "http://127.0.0.1:18081",
+        "bypass_hosts": [
+          "localhost",
+          "127.0.0.1",
+          "::1"
+        ],
+        "sensitive_egress": true
+      },
+      "normalized": {
+        "kind": "external-http-proxy",
+        "endpoint": "http://127.0.0.1:18081",
+        "bypass_hosts": [
+          "127.0.0.1",
+          "::1",
+          "localhost"
+        ],
+        "credential_mode": "none",
+        "sensitive_egress": true
+      },
+      "canonical": "{\"bypass_hosts\":[\"127.0.0.1\",\"::1\",\"localhost\"],\"credential_mode\":\"none\",\"endpoint\":\"http://127.0.0.1:18081\",\"kind\":\"external-http-proxy\",\"schema\":\"relux-network-profiles-v1\",\"sensitive_egress\":true}",
+      "digest": "sha256:d95a34aaa72ee43427192380d66277f40a69cded95a51584c26ef5aab25c690c"
+    },
+    {
+      "id": "D11",
+      "note": "named direct with sensitive egress: the declaration is digested",
+      "name": "direct-sensitive",
+      "input": {
+        "kind": "direct",
+        "endpoint": "",
+        "bypass_hosts": null,
+        "sensitive_egress": true
+      },
+      "normalized": {
+        "kind": "direct",
+        "endpoint": "",
+        "bypass_hosts": null,
+        "credential_mode": "none",
+        "sensitive_egress": true
+      },
+      "canonical": "{\"credential_mode\":\"none\",\"kind\":\"direct\",\"schema\":\"relux-network-profiles-v1\",\"sensitive_egress\":true}",
+      "digest": "sha256:f221989d57ffd7bf0384f102bdded6d167424c9608d24aa5ece6e152af91c4f4"
     }
   ],
   "envpatch": [

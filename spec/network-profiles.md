@@ -1,8 +1,8 @@
 # Local agent network profiles: specification
 
-Status: **DRAFT** (decided design, pre-implementation). Written 2026-09-22 from the proposal "самостоятельный эпик локальных сетевых профилей" and its enriched copy, which the operator keeps as Russian working notes outside the repositories, aligned with `skill-project-management/.specs/drafts/launch-profiles.md` (referenced below as *LP*, decisions LP-D1…D16). Working names are marked *proposed*. Facts marked *docs-confidence* were not verified on installed binaries and become errata before goldens.
+Status: **DRAFT** (decided design, pre-implementation). Written 2026-09-22 from the proposal "самостоятельный эпик локальных сетевых профилей" and its enriched copy, which the operator keeps as Russian working notes outside the repositories, aligned with the shared launch-ownership and runtime-binding contract. Working names are marked *proposed*. Facts marked *docs-confidence* were not verified on installed binaries and become errata before goldens.
 
-> **Notes 2026-09-23.** Sequenced as roadmap milestone M7, after agents-infra is archived (`spec/track.md`). The library gets its own public repository `curator-network-profiles`. Defaults come from the operator layer of agent selection (`skill-project-management/.specs/drafts/agent-selection.md`) in addition to runtime bindings and the project. The patch reaches argv and env through the agents-management module (adopted Decision 0019).
+> **Notes 2026-09-23.** Sequenced as roadmap milestone M7, after agents-infra is archived (`spec/track.md`). The library gets its own public repository `curator-network-profiles`. Defaults come from the operator layer of agent selection in addition to runtime bindings and the project. The patch reaches argv and env through the agents-management module.
 
 > **Notes 2026-09-27 (the command-line shape).** The operator adopted one command-line shape for the ecosystem (`command-line shape decision, 2026-09-27`). For this module:
 > - the flag is `--network <name>` everywhere (was `--network-profile`);
@@ -35,7 +35,7 @@ The launch keeps its environment, credentials, runtime binding, model and workin
 
 | Fact | Where |
 | --- | --- |
-| Three process owners exist and each starts harness processes from values it composes: `curator-run` (interactive), task-board `internal/spawn` (tracked children), the session host (board primary sessions, codex app-server host, claude PTY) | LP §3.3, LP-D5, LP-D6 |
+| Three process owners exist and each starts harness processes from values it composes: `curator-run` (interactive), task-board `internal/spawn` (tracked children), the session host (board primary sessions, codex app-server host, claude PTY) | Launch-ownership contract |
 | `curator-run` composes plan argv → prompt flags → MCP flags → native tail and applies the four environment layers; its tracked transport carries only owned literals, `env_names`, `argv_suffix`, stdin | launcher README "Environment and transport"; SPEC 0.4.0-draft §4.5–4.6 |
 | Module plugins filter the child environment: codex strips eleven exact keys (`CODEX_*`, task-board endpoint pointers) and sanitizes `PATH`; claude strips only `CLAUDECODE`; pi passes the parent env through | module `internal/runtimeenv`, `systems/claude/env.go`, `systems/pi/env.go` |
 | ax launch-plan request: `env_literals` (values) and `env_names` (destination-local lookups); a name that also appears in literals is dropped from the allowlist with a warning | ax spec §14.1; curator-spec Decision 0013 D6.3 |
@@ -43,7 +43,7 @@ The launch keeps its environment, credentials, runtime binding, model and workin
 | OpenCode documents proxy env and the need to bypass the proxy for its local TUI server | opencode docs (docs-confidence) |
 | Codex websocket dialer handles standard proxy env and proxy routes | codex source read (docs-confidence for the installed build) |
 | `curl` reads lowercase `http_proxy` only; `NO_PROXY=*` disables proxying; clients disagree on case and precedence | curl docs |
-| Local engines under `curator-inference-manager` listen on loopback; Direct has no proxy and nothing to bypass, so its engine-host coverage check does not apply. SSH-mode engine profiles connect to remote boxes by their own channel | LP-D7, LP-D8; agents-infra `model-harness` `mode = local\|ssh` |
+| Local engines under `curator-inference-manager` listen on loopback; Direct has no proxy and nothing to bypass, so its engine-host coverage check does not apply. SSH-mode engine profiles connect to remote boxes by their own channel | Local-engine contract; agents-infra `model-harness` `mode = local\|ssh` |
 
 ---
 
@@ -55,11 +55,11 @@ The launch keeps its environment, credentials, runtime binding, model and workin
 | --- | --- | --- |
 | Environment profile (Curator) | context, home, skills, MCP, account boundary | Curator |
 | Credential selection | which login the home uses (`shared`/`isolated`) | Curator |
-| Runtime binding (LP-D1) | which harness reaches which provider or engine | task-board config + module catalog |
+| Runtime binding | which harness reaches which provider or engine | task-board config + module catalog |
 | **Network profile** | through which application proxy supported connections go | `curator-network-profiles` + the process owner |
 | Execution profile | where and under which limits tools run | execution environment |
 
-The network module never copies logins, changes provider homes, chooses an account or resets quota accounting; a different route is never a new quota domain. CLI vocabulary follows the command-line shape of 2026-09-27, which replaces LP-D12's: `--runtime <id>` (alias `--agent`) for the binding, `--profile <name>` for the Curator profile in task-board and `curator run` alike, and **`--network <name>`** for the network profile. The bare word `profile` means only the Curator profile; a network profile is never selected with `--profile`.
+The network module never copies logins, changes provider homes, chooses an account or resets quota accounting; a different route is never a new quota domain. CLI vocabulary follows the command-line shape of 2026-09-27, which replaces the earlier launch vocabulary: `--runtime <id>` (alias `--agent`) for the binding, `--profile <name>` for the Curator profile in task-board and `curator run` alike, and **`--network <name>`** for the network profile. The bare word `profile` means only the Curator profile; a network profile is never selected with `--profile`.
 
 ### N2 One library, three process owners
 
@@ -89,7 +89,7 @@ endpoint     = "http://127.0.0.1:18082"
 bypass_hosts = ["localhost", "127.0.0.1", "::1"]
 ```
 
-Kinds are `external-http-proxy` and `direct`. A named `kind = "direct"` profile has no `endpoint`, `bypass_hosts` or `probe_target`; these keys MUST be refused if present, even empty.
+Kinds are `external-http-proxy` and `direct`. A named `kind = "direct"` profile has no `endpoint`, `bypass_hosts` or `probe_target`; these keys MUST be refused if present, even empty. A profile of either kind MAY declare `sensitive_egress = true` (default false): adapter policy then defaults to strict for that profile, refusing unknown builds. Adding or removing the declaration changes the profile digest and needs `confirm` like any profile change; explicit `false` is identical to absence.
 
 ```toml
 [networks.direct]
@@ -100,9 +100,9 @@ The file is edited through `curator network add|remove` or by hand. Adding or ch
 
 `NetworkBinding` (what is applied): `profile_ref`, `profile_digest`, `adapter_identity` (harness build + entrypoint + plugin), `resolved_endpoint`, `assurance`, `env_patch`; later `lease_id`, `generation` for a managed gateway. Run manifests keep `profile_ref`, `profile_digest`, `adapter_identity`, `assurance` and the probe result; never the full environment or an endpoint carrying credentials. A digest binds the configuration, not the external proxy's actual egress.
 
-`env_patch` is two ordered operations, `unset` then `set`: `unset` removes every proxy-family variable the adapter knows, in both spellings, from the environment of the host that creates the process, and `set` writes the coherent proxy set of N5 (empty for direct); a patch is never only additions. `profile_digest` is computed over the normalized effective profile (schema version, kind, endpoint, sorted `bypass_hosts`, credential *mode* without any secret; direct includes only schema, kind and credential mode), never over probe results, lease ids or timestamps. Two bindings are **equal** when `profile_digest`, `adapter_identity` and `assurance` are equal; an equal profile name proves nothing.
+`env_patch` is two ordered operations, `unset` then `set`: `unset` removes every proxy-family variable the adapter knows, in both spellings, from the environment of the host that creates the process, and `set` writes the coherent proxy set of N5 (empty for direct); a patch is never only additions. `profile_digest` is computed over the normalized effective profile (schema version, kind, endpoint, sorted `bypass_hosts`, credential *mode* without any secret, and `sensitive_egress` when true; direct includes only schema, kind, credential mode and `sensitive_egress` when true), never over probe results, lease ids or timestamps. Two bindings are **equal** when `profile_digest`, `adapter_identity` and `assurance` are equal; an equal profile name proves nothing.
 
-A `runtimes.toml` entry (LP-D2) MAY carry `network = "<name>"` as the default for that binding, and project configuration MAY carry `spawn.network.default = "<name>"` (decided 2026-09-22 after review): both are stable profile ids resolved on each machine and refused as `network_profile_unknown` where the machine has no such profile. An explicit `--network` overrides both.
+A `runtimes.toml` entry MAY carry `network = "<name>"` as the default for that binding, and project configuration MAY carry `spawn.network.default = "<name>"` (decided 2026-09-22 after review): both are stable profile ids resolved on each machine and refused as `network_profile_unknown` where the machine has no such profile. An explicit `--network` overrides both.
 
 Profile bindings come only from `[bindings.profiles]` in the destination
 operator catalog (`~/.curator/network.toml`), using the exact
@@ -126,7 +126,7 @@ NO_PROXY=<bypass list>  no_proxy=<bypass list>
 
 For `direct`, the patch is **unset-only**: remove the same proxy family case-insensitively and set nothing. A direct child sees no inherited proxy variables; unmanaged retains the ambient environment.
 
-`ALL_PROXY`, websocket-specific variables and runtime settings are added only by the harness adapter in the module once verified; nothing sets a dozen variables on faith. If native tool settings override env, the adapter applies a supported per-launch override or refuses `network_configuration_conflict`; it never rewrites shared configuration. Proxy variables are **owned literals** of the process owner, exactly like `ANTHROPIC_BASE_URL` in the claude `env-bundle` transport (LP-D3); in the ax document they travel as `env_literals`, never `env_names`. Curator's own preparation (`curator env resolve`, install, repair) is not proxied by default; proxying preparation is a separate explicit requirement.
+`ALL_PROXY`, websocket-specific variables and runtime settings are added only by the harness adapter in the module once verified; nothing sets a dozen variables on faith. If native tool settings override env, the adapter applies a supported per-launch override or refuses `network_configuration_conflict`; it never rewrites shared configuration. Proxy variables are **owned literals** of the process owner, exactly like `ANTHROPIC_BASE_URL` in the claude `env-bundle` transport; in the ax document they travel as `env_literals`, never `env_names`. Curator's own preparation (`curator env resolve`, install, repair) is not proxied by default; proxying preparation is a separate explicit requirement.
 
 ### N6 Gateway shape
 
@@ -146,13 +146,13 @@ Support is verified for the tuple `harness build + entrypoint + adapter + config
 | reattach or resume of an existing run | same profile name, different digest | refuse `network_profile_drift`; per-session re-routing is not a workaround; the operator restores the profile or starts a new launch |
 | reattach or resume of an existing run | profile missing or denied | `network_profile_unknown` / `network_profile_denied` |
 
-A session-level "change network profile" operation is not in the MVP; it arrives with gateway generations (N14). New harness paths that enter the matrix as they land: exec-mode `pi-native` (LP-D8) and the opencode plugin (LP-D3); the matrix is re-run on every pinned tool release.
+A session-level "change network profile" operation is not in the MVP; it arrives with gateway generations (N14). New harness paths that enter the matrix as they land: exec-mode `pi-native` and the opencode plugin; the matrix is re-run on every pinned tool release.
 
 ### N8 Integration surfaces
 
 - `curator run <runtime> --profile <p> --network egress-a -- <args>`: resolve, validate compatibility, bounded preflight for proxy profiles only, patch after the ordinary environment composition; admission and late checks unchanged.
 - `task-board spawn … --network egress-a` and `spawn.network.default` / per-binding `network`: the orchestrator selects a profile id from the allowed set, never a raw proxy URL. Inheritance by a child is **by reference plus re-resolution**, with `origin = inherited`, never by copying the orchestrator's environment; a parent on A may spawn a child on B.
-- Manifests: beside `RuntimeProvenance` and the Curator `profile.name`/`lock_sha256` (LP-D11), `network.profile_ref`, `profile_digest`, `adapter_identity`, `assurance`.
+- Manifests: beside `RuntimeProvenance` and the Curator `profile.name`/`lock_sha256`, `network.profile_ref`, `profile_digest`, `adapter_identity`, `assurance`.
 
 ### N9 Tracked sessions (ax)
 
@@ -256,3 +256,18 @@ Remaining for the implementing session (record why when choosing): the first man
 | per-binding `network_profile` | per-binding `network` | N3, N8 |
 | `netrun --profile X -- <cmd>`, `netrun doctor X` | the provider `curator-network`: `curator network exec <name> -- <cmd>`, `curator network check [--probe] <name>`, with `list`, `show`, `add`, `remove` and `confirm` | N6, N10, §3 |
 | adding a profile took effect at once | adding a network profile is a widening entry confirmed with `curator network confirm` | N3 |
+
+### Adapter evidence execution boundary
+
+`pkg/adapterprobe.Evaluate` hashes immutable caller-supplied snapshots and
+decides admission without process starts, filesystem reads or cache writes.
+Its adapter BuildID is `sha256-<64 lowercase hex>`; profile digests keep
+`sha256:`. Plans, direct profiles, dry runs and live reattach all evaluate
+here: exact allowlisted or evidenced builds are qualified, new builds of known
+vendor lines run unqualified with visible provenance, and unknown lines
+refuse. A content pin alone never qualifies. Fresh qualification is an
+explicit real proxy launch capability on the destination host and currently
+returns typed Unsupported until secure native supervision exists. Endpoint
+preflight does not grant that capability. Version-label evidence cannot be
+converted into digest approval without exact artifact provenance. The process
+owner must execute the approved bytes, not reopen a mutable original pathname.

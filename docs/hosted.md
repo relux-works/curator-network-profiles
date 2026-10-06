@@ -26,7 +26,11 @@ are proposals, not currently supported values.
 
 `ResolveForHost(ctx, carrier, Options)` returns a volatile `binding.Binding`
 and sanitized `binding.Record`. Supply trusted absolute `OperatorHome`,
-`Identity` and mandatory `VerifyAdapter`; never use child HOME or caller tuple.
+`Identity` and mandatory adapter verification; never use child HOME or caller
+tuple. New code must use `VerifyAdapterWithProfile` (option C: the host passes
+its own resolved profile snapshot so the same sensitivity is evaluated without
+a second catalog read; see below). `VerifyAdapter` remains only for legacy
+callers that have not migrated.
 `LoadCatalog` defaults to `catalog.Load` with only this HOME; `LoadLedger` can
 supply a separate trusted confirmation store. Nil `Allowlist` allows catalog
 entries; empty non-nil denies all. `RequiredAssurance` defaults to cooperative;
@@ -50,7 +54,10 @@ disjointness in the host. Apply `ApplyFinal` immediately before every child,
 client, preflight and assay start, after all overlays/home rewrites. It removes
 HTTP/HTTPS/ALL/FTP/NO_PROXY in every case, preserves untouched order and appends
 the fresh set LAST. Direct sets nothing; zero Binding preserves unmanaged env.
-Never overlay afterward. Persist only Record; inputs/global env are unchanged.
+Never overlay afterward. The managed network member persists only Record; the
+session envelope additionally retains the sibling `adapter_provenance` for
+unqualified builds. Never serialize Binding, Patch, endpoint or env;
+inputs/global env are unchanged.
 
 For live attach/restore/startup reconciliation, re-resolve the original stored
 ref with current authorization, disable preflight, then `CheckReattach`.
@@ -68,3 +75,26 @@ drift exit 1 versus 16; reconcile the authoritative registry before activation.
 Host allocation/lifecycle gates, startup guard, closed durable
 record decoding, final native-boundary verification and capability
 advertisement remain the daemon's responsibility.
+
+## Adapter content evidence
+
+Canonical adapter BuildIDs use `sha256-<64 lowercase hex>` and pass the existing
+host identity validation. Use `adapterprobe.Decision.BoundIdentity` for every
+admission (qualified and unqualified); preserve that identity through Record
+serialization and reattach. Do not silently migrate old version-label or
+colon-prefixed adapter records. Profile digests remain unchanged.
+
+Use `VerifyAdapterWithProfile`: the host passes its own resolved profile
+snapshot (including `sensitive_egress`) so the caller evaluates the same
+snapshot with `adapterprobe.Evaluate` (loaded known-bad state plus that
+sensitivity) without a second catalog read. The callback runs for direct
+profiles and even when endpoint `Preflight` is false. Plans, dry runs and live
+reattach never request fresh qualification or cache writes: they evaluate and,
+for unqualified builds, show and record the provenance without inventing
+evidence. Fresh qualification belongs to a separate, explicitly authorized real
+proxy launch on the destination, followed by a pure evidence callback. The
+current `adapterprobe` execution backend returns typed Unsupported. Its generic
+transport scope does not qualify hosted entrypoints, specialized adapters or
+child routing; retain those independent gates. Evaluation itself opens no paths
+and starts no processes. The session envelope retains the network `Record`
+plus the sibling `adapter_provenance` member; strict decoders MUST allow it.

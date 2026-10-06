@@ -73,6 +73,10 @@ type Profile struct {
 	ProbeTarget string `json:"probe_target,omitempty"`
 	// CredentialMode is always CredentialModeNone in slice A.
 	CredentialMode string `json:"credential_mode"`
+	// SensitiveEgress declares that the profile's egress is sensitive.
+	// Adapter policy defaults to strict for such profiles. It is allowed
+	// on both kinds, defaults to false, and is digested only when true.
+	SensitiveEgress bool `json:"sensitive_egress,omitempty"`
 }
 
 // File is a decoded, normalized and validated catalog. It is valid as a
@@ -120,10 +124,11 @@ func (f *File) Lookup(name string) (Profile, bool) {
 // Input is a profile as typed by the operator or read from the file,
 // before normalization.
 type Input struct {
-	Kind        string
-	Endpoint    string
-	BypassHosts []string
-	ProbeTarget string
+	Kind            string
+	Endpoint        string
+	BypassHosts     []string
+	ProbeTarget     string
+	SensitiveEgress bool
 }
 
 var nameRE = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{0,62}$`)
@@ -189,7 +194,7 @@ func Normalize(name string, in Input) (Profile, error) {
 		if in.Endpoint != "" || in.BypassHosts != nil || in.ProbeTarget != "" {
 			return Profile{}, invalid("direct forbids endpoint, bypass_hosts and probe_target")
 		}
-		return Profile{Name: name, Kind: kind, CredentialMode: CredentialModeNone}, nil
+		return Profile{Name: name, Kind: kind, CredentialMode: CredentialModeNone, SensitiveEgress: in.SensitiveEgress}, nil
 	case KindExternalHTTPProxy:
 	default:
 		return Profile{}, invalid("kind is not supported; expected external-http-proxy or direct")
@@ -215,12 +220,13 @@ func Normalize(name string, in Input) (Profile, error) {
 		}
 	}
 	return Profile{
-		Name:           name,
-		Kind:           kind,
-		Endpoint:       endpoint,
-		BypassHosts:    bypass,
-		ProbeTarget:    target,
-		CredentialMode: CredentialModeNone,
+		Name:            name,
+		Kind:            kind,
+		Endpoint:        endpoint,
+		BypassHosts:     bypass,
+		ProbeTarget:     target,
+		CredentialMode:  CredentialModeNone,
+		SensitiveEgress: in.SensitiveEgress,
 	}, nil
 }
 
@@ -406,13 +412,15 @@ func (p Profile) Covers(host string) bool {
 
 // canonical is the digest input of spec/contract-appendix.md §1: keys in
 // byte order, no whitespace, no HTML escaping. Name, probe_target and
-// every runtime fact are excluded.
+// every runtime fact are excluded. sensitive_egress is present only
+// when true, so existing digests are unchanged.
 type canonical struct {
-	BypassHosts    []string `json:"bypass_hosts"`
-	CredentialMode string   `json:"credential_mode"`
-	Endpoint       string   `json:"endpoint"`
-	Kind           string   `json:"kind"`
-	Schema         string   `json:"schema"`
+	BypassHosts     []string `json:"bypass_hosts"`
+	CredentialMode  string   `json:"credential_mode"`
+	Endpoint        string   `json:"endpoint"`
+	Kind            string   `json:"kind"`
+	Schema          string   `json:"schema"`
+	SensitiveEgress bool     `json:"sensitive_egress,omitempty"`
 }
 
 // Canonical returns the exact bytes the digest is computed over.
@@ -429,18 +437,20 @@ func Canonical(p Profile) []byte {
 	enc := json.NewEncoder(&buf)
 	enc.SetEscapeHTML(false)
 	var value any = canonical{
-		BypassHosts:    hosts,
-		CredentialMode: mode,
-		Endpoint:       p.Endpoint,
-		Kind:           p.Kind,
-		Schema:         Schema,
+		BypassHosts:     hosts,
+		CredentialMode:  mode,
+		Endpoint:        p.Endpoint,
+		Kind:            p.Kind,
+		Schema:          Schema,
+		SensitiveEgress: p.SensitiveEgress,
 	}
 	if p.Kind == KindDirect {
 		value = struct {
-			CredentialMode string `json:"credential_mode"`
-			Kind           string `json:"kind"`
-			Schema         string `json:"schema"`
-		}{mode, p.Kind, Schema}
+			CredentialMode  string `json:"credential_mode"`
+			Kind            string `json:"kind"`
+			Schema          string `json:"schema"`
+			SensitiveEgress bool   `json:"sensitive_egress,omitempty"`
+		}{mode, p.Kind, Schema, p.SensitiveEgress}
 	}
 	if err := enc.Encode(value); err != nil {
 		// The struct holds only strings and a string slice; encoding
@@ -479,10 +489,11 @@ type rawBindings struct {
 }
 
 type rawProfile struct {
-	Kind        string   `toml:"kind"`
-	Endpoint    *string  `toml:"endpoint"`
-	BypassHosts []string `toml:"bypass_hosts"`
-	ProbeTarget *string  `toml:"probe_target"`
+	Kind            string   `toml:"kind"`
+	Endpoint        *string  `toml:"endpoint"`
+	BypassHosts     []string `toml:"bypass_hosts"`
+	ProbeTarget     *string  `toml:"probe_target"`
+	SensitiveEgress *bool    `toml:"sensitive_egress"`
 }
 
 // Parse decodes a catalog strictly (unknown keys refused), normalizes
@@ -493,9 +504,10 @@ type rawProfile struct {
 func Parse(data []byte) (*File, error) {
 	// Struct decoding folds key case (ASCII folding for ASCII keys,
 	// Unicode lowercasing for non-ASCII keys). Check the binding
-	// namespace through a map first, so aliases cannot merge or hide
-	// invalid targets. Every spelling the typed decoder could recognize
-	// as bindings must be exactly "bindings".
+	// namespace and the networks namespace through a map first, so
+	// aliases cannot merge, hide invalid targets, or silently disable
+	// sensitive_egress. Every spelling the typed decoder could recognize
+	// as a known key must be exactly that key.
 	var document map[string]any
 	if err := toml.Unmarshal(data, &document); err != nil {
 		return nil, classifyDecodeError(err)
@@ -511,6 +523,42 @@ func Parse(data []byte) (*File, error) {
 			for field := range table {
 				if field != "profiles" && field != "paths" {
 					return nil, refusal.New(refusal.CodeProfileInvalid, FileName, "unknown key in bindings")
+				}
+			}
+		}
+	}
+	// Exact-key discipline for the catalog and profile tables, mirroring
+	// the bindings fix. Aliases through enclosing namespaces could merge
+	// the same profile, and a case-folded safety field could silently
+	// disable sensitive_egress by order. Properly quoted or escaped keys
+	// that decode to the exact spellings remain valid.
+	for key, value := range document {
+		for _, known := range []string{"schema", "default", "networks"} {
+			if key != known && (asciiFoldEqual(key, known) || strings.ToLower(key) == known) {
+				return nil, refusal.New(refusal.CodeProfileInvalid, FileName, "catalog keys must use exact lowercase spellings")
+			}
+		}
+		if key != "networks" {
+			continue
+		}
+		table, ok := value.(map[string]any)
+		if !ok {
+			continue
+		}
+		for profileName, profileValue := range table {
+			profileTable, ok := profileValue.(map[string]any)
+			if !ok {
+				continue
+			}
+			subject := FileName
+			if nameRE.MatchString(profileName) && refusal.PlainSubject(profileName) {
+				subject = profileName
+			}
+			for field := range profileTable {
+				for _, known := range []string{"kind", "endpoint", "bypass_hosts", "probe_target", "sensitive_egress"} {
+					if field != known && (asciiFoldEqual(field, known) || strings.ToLower(field) == known) {
+						return nil, refusal.New(refusal.CodeProfileInvalid, subject, "profile keys must use exact lowercase spellings")
+					}
 				}
 			}
 		}
@@ -571,7 +619,11 @@ func Parse(data []byte) (*File, error) {
 		if rp.ProbeTarget != nil {
 			target = *rp.ProbeTarget
 		}
-		p, err := Normalize(name, Input{Kind: rp.Kind, Endpoint: endpoint, BypassHosts: rp.BypassHosts, ProbeTarget: target})
+		var sensitive bool
+		if rp.SensitiveEgress != nil {
+			sensitive = *rp.SensitiveEgress
+		}
+		p, err := Normalize(name, Input{Kind: rp.Kind, Endpoint: endpoint, BypassHosts: rp.BypassHosts, ProbeTarget: target, SensitiveEgress: sensitive})
 		if err != nil {
 			return nil, err
 		}
@@ -639,7 +691,7 @@ func decodeFieldLabel(key toml.Key) string {
 	}
 	if len(key) == 3 && key[0] == "networks" && nameRE.MatchString(key[1]) {
 		switch key[2] {
-		case "kind", "endpoint", "bypass_hosts", "probe_target":
+		case "kind", "endpoint", "bypass_hosts", "probe_target", "sensitive_egress":
 			return "networks." + key[1] + "." + key[2]
 		}
 	}
