@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.3.1 (2026-10-06)
 
 - Add `pkg/adapterprobe` policy evaluation over caller-supplied native
   snapshots, compatible content BuildIDs, versioned recipe and adapter
