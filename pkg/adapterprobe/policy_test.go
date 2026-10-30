@@ -3,6 +3,8 @@ package adapterprobe
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"runtime"
@@ -356,5 +358,40 @@ func TestEvaluateCacheKeyIsDigestOnly(t *testing.T) {
 	got, err := Lookup(context.Background(), second, Policy{})
 	if err != nil || !got.Verified {
 		t.Fatalf("%+v %v", got, err)
+	}
+}
+
+// The interactive Claude recipe admits an exact allowlisted interactive
+// build in strict mode and nothing else: a build allowlisted for exec does
+// not qualify the interactive entrypoint, an interactive allowlist entry
+// does not qualify exec, and the interactive recipe never pairs with the
+// exec entrypoint.
+func TestInteractiveClaudeRecipe(t *testing.T) {
+	artifact := []byte("\x7fELFclaude-native-snapshot")
+	sum := sha256.Sum256(artifact)
+	build, _ := BuildID(hex.EncodeToString(sum[:]))
+	interactive := Identity{Adapter: "generic-env-v1", Harness: "claude-code", Entrypoint: "interactive"}
+	exec := Identity{Adapter: "generic-env-v1", Harness: "claude-code", Entrypoint: "exec"}
+	entry := func(id Identity, recipe string) AllowedBuild {
+		return AllowedBuild{Adapter: id, BuildID: build, Recipe: recipe, Platform: runtime.GOOS, Scope: TransportScope}
+	}
+	for _, tc := range []struct {
+		name    string
+		id      Identity
+		recipe  string
+		allowed []AllowedBuild
+		want    Outcome
+	}{
+		{"interactive allowlisted", interactive, "claude-interactive-v1", []AllowedBuild{entry(interactive, "claude-interactive-v1")}, OutcomeQualified},
+		{"interactive with only an exec entry", interactive, "claude-interactive-v1", []AllowedBuild{entry(exec, "claude-exec-v1")}, OutcomeRefused},
+		{"exec with only an interactive entry", exec, "claude-exec-v1", []AllowedBuild{entry(interactive, "claude-interactive-v1")}, OutcomeRefused},
+		{"interactive recipe on the exec entrypoint", exec, "claude-interactive-v1", []AllowedBuild{entry(exec, "claude-interactive-v1")}, OutcomeRefused},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			d, _ := Evaluate(context.Background(), Request{Adapter: tc.id, Artifact: artifact, Recipe: tc.recipe}, Policy{Mode: Strict, Allowlist: tc.allowed})
+			if d.Outcome != tc.want {
+				t.Fatalf("outcome = %v (%s), want %v", d.Outcome, d.Reason, tc.want)
+			}
+		})
 	}
 }

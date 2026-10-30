@@ -14,6 +14,10 @@
   backend serves it, its generic patch is the unset family only, and
   `check --probe` reports it as skipped.
 - `control` is refused on the other kinds, even empty.
+- Add the adapter recipe `claude-interactive-v1` for Claude Code's
+  interactive terminal session. Like `claude-exec-v1` it has no automatic
+  qualification: strict mode admits only an exact allowlisted build for that
+  entrypoint, and an exec allowlist entry never qualifies it.
 
 ## v0.3.1 (2026-10-06)
 
