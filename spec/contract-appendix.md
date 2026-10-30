@@ -59,6 +59,14 @@ Direct has exactly these three keys, in byte order:
 {"credential_mode":"none","kind":"direct","schema":"relux-network-profiles-v1"}
 ```
 
+A filtering gateway has exactly these five keys, in byte order. Its
+`sensitive_egress` is mandatory and always true, so the key is always
+present (D12):
+
+```text
+{"control":"<control socket path>","credential_mode":"none","kind":"filtering-gateway","schema":"relux-network-profiles-v1","sensitive_egress":true}
+```
+
 Adding or changing any profile, including direct, is a widening (it reroutes traffic) and MUST require `curator network confirm` at the current digest.
 
 ### 1.3 Algorithm
@@ -476,6 +484,37 @@ Digest: `sha256:f221989d57ffd7bf0384f102bdded6d167424c9608d24aa5ece6e152af91c4f4
   },
   "canonical": "{\"credential_mode\":\"none\",\"kind\":\"direct\",\"schema\":\"relux-network-profiles-v1\",\"sensitive_egress\":true}",
   "digest": "sha256:f221989d57ffd7bf0384f102bdded6d167424c9608d24aa5ece6e152af91c4f4"
+}
+```
+
+**D12** — filtering gateway: the control socket and the mandatory sensitive egress are digested; no endpoint or bypass_hosts.
+
+Canonical bytes: `{"control":"/run/netproxy/control.sock","credential_mode":"none","kind":"filtering-gateway","schema":"relux-network-profiles-v1","sensitive_egress":true}`
+
+Digest: `sha256:a11b81dbab3c85c983e15790196b586e80574a067d036cfa19be251da38bc4fa`
+
+```json vector=D12
+{
+  "id": "D12",
+  "note": "filtering gateway: the control socket and the mandatory sensitive egress are digested; no endpoint or bypass_hosts",
+  "name": "secret-filter",
+  "input": {
+    "kind": "filtering-gateway",
+    "endpoint": "",
+    "bypass_hosts": null,
+    "sensitive_egress": true,
+    "control": "/run/netproxy/control.sock"
+  },
+  "normalized": {
+    "kind": "filtering-gateway",
+    "endpoint": "",
+    "bypass_hosts": null,
+    "credential_mode": "none",
+    "sensitive_egress": true,
+    "control": "/run/netproxy/control.sock"
+  },
+  "canonical": "{\"control\":\"/run/netproxy/control.sock\",\"credential_mode\":\"none\",\"kind\":\"filtering-gateway\",\"schema\":\"relux-network-profiles-v1\",\"sensitive_egress\":true}",
+  "digest": "sha256:a11b81dbab3c85c983e15790196b586e80574a067d036cfa19be251da38bc4fa"
 }
 ```
 

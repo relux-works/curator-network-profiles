@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+- Add the profile kind `filtering-gateway` (N14): a local filtering
+  gateway named by its control socket, `control`, an absolute clean path
+  of at most 103 bytes. It carries no `endpoint`, `bypass_hosts` or
+  `probe_target`, and `sensitive_egress = true` is mandatory. The digest
+  covers `control`, `kind` and `sensitive_egress` (vector D12); every
+  existing digest is unchanged.
+- Only the owner of the actual runtime binds a filtering gateway.
+  `curator network exec` and the hosted binding refuse it with
+  `network_scope_unsupported` before patching or probing, no library
+  backend serves it, its generic patch is the unset family only, and
+  `check --probe` reports it as skipped.
+- `control` is refused on the other kinds, even empty.
+
 ## v0.3.1 (2026-10-06)
 
 - Add `pkg/adapterprobe` policy evaluation over caller-supplied native

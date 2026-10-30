@@ -120,6 +120,11 @@ func ResolveForHost(ctx context.Context, c Carrier, opts Options) (binding.Bindi
 	if err != nil {
 		return fail(boundaryError(err, refusal.CodeProfileDenied, c.Ref, "host network authorization refused"))
 	}
+	// The hosted binding applies the generic patch; a filtering gateway
+	// needs the runtime owner's own registration and patch.
+	if res.Profile.Kind == netprofile.KindFilteringGateway {
+		return fail(refusal.New(refusal.CodeScopeUnsupported, c.Ref, "a filtering-gateway profile is bound only by the owner of the actual runtime"))
+	}
 	if res.Digest != c.ExpectedDigest {
 		return fail(refusal.New(refusal.CodeProfileDrift, c.Ref, "host profile differs from the expected digest"))
 	}

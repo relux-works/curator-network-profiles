@@ -755,6 +755,28 @@
       },
       "canonical": "{\"credential_mode\":\"none\",\"kind\":\"direct\",\"schema\":\"relux-network-profiles-v1\",\"sensitive_egress\":true}",
       "digest": "sha256:f221989d57ffd7bf0384f102bdded6d167424c9608d24aa5ece6e152af91c4f4"
+    },
+    {
+      "id": "D12",
+      "note": "filtering gateway: the control socket and the mandatory sensitive egress are digested; no endpoint or bypass_hosts",
+      "name": "secret-filter",
+      "input": {
+        "kind": "filtering-gateway",
+        "endpoint": "",
+        "bypass_hosts": null,
+        "sensitive_egress": true,
+        "control": "/run/netproxy/control.sock"
+      },
+      "normalized": {
+        "kind": "filtering-gateway",
+        "endpoint": "",
+        "bypass_hosts": null,
+        "credential_mode": "none",
+        "sensitive_egress": true,
+        "control": "/run/netproxy/control.sock"
+      },
+      "canonical": "{\"control\":\"/run/netproxy/control.sock\",\"credential_mode\":\"none\",\"kind\":\"filtering-gateway\",\"schema\":\"relux-network-profiles-v1\",\"sensitive_egress\":true}",
+      "digest": "sha256:a11b81dbab3c85c983e15790196b586e80574a067d036cfa19be251da38bc4fa"
     }
   ],
   "envpatch": [

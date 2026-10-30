@@ -288,6 +288,12 @@ func renderBlock(prof netprofile.Profile) string {
 		b.WriteString("kind = \"direct\"\n")
 		return b.String()
 	}
+	if prof.Kind == netprofile.KindFilteringGateway {
+		b.WriteString("kind             = " + strconv.Quote(prof.Kind) + "\n")
+		b.WriteString("control          = " + strconv.Quote(prof.Control) + "\n")
+		b.WriteString("sensitive_egress = true\n")
+		return b.String()
+	}
 	b.WriteString("kind         = " + strconv.Quote(prof.Kind) + "\n")
 	b.WriteString("endpoint     = " + strconv.Quote(prof.Endpoint) + "\n")
 	quoted := make([]string, len(prof.BypassHosts))

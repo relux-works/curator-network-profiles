@@ -64,8 +64,14 @@ func (Generic) Identity() string { return AdapterGeneric }
 // = bypass_hosts joined by "," in normalized order. ALL_PROXY, websocket
 // variables and runtime settings are never set by the generic adapter.
 // Direct profiles use the same unset family with an empty set.
+//
+// A filtering-gateway profile has no endpoint the generic adapter could
+// set: the gateway hands each launch its endpoints and token. Its generic
+// patch is the unset family only, and that is never a launch patch on its
+// own; every generic launch path in this module refuses the kind before
+// patching (exec, hosted), and a runtime owner builds its own patch.
 func (Generic) Patch(p netprofile.Profile) Patch {
-	if p.Kind == netprofile.KindDirect {
+	if p.Kind == netprofile.KindDirect || p.Kind == netprofile.KindFilteringGateway {
 		return Patch{Unset: UnsetNames(), Set: []Pair{}}
 	}
 	bypass := strings.Join(p.BypassHosts, ",")

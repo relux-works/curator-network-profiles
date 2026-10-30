@@ -66,6 +66,11 @@ func (a *app) exec(args []string) int {
 	if !res.Managed || res.Selection.Origin != resolve.OriginExplicit {
 		return a.usage("exec: an explicit managed network profile is required")
 	}
+	// exec applies the generic patch to an arbitrary command; a filtering
+	// gateway needs a runtime owner that registers and patches the runtime.
+	if res.Profile.Kind == netprofile.KindFilteringGateway {
+		return a.fail(refusal.New(refusal.CodeScopeUnsupported, name, "a filtering-gateway profile is launched by `curator run`, not by exec"))
+	}
 	pr := probe.Result{TCP: probe.StatusSkipped, Connect: probe.StatusSkipped, TLS: probe.StatusSkipped, CheckedAt: a.deps.Now()}
 	var path string
 	if !*dryRun {

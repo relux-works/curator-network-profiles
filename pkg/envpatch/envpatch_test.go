@@ -132,3 +132,14 @@ func TestApplySetNamesNeverDuplicate(t *testing.T) {
 		t.Fatalf("got %v", got)
 	}
 }
+
+// The generic adapter has no endpoint to set for a filtering gateway: its
+// patch is the unset family only, the same as direct, and every generic
+// launch path refuses the kind before patching (internal/cli, pkg/hosted).
+func TestGenericPatchFilteringGateway(t *testing.T) {
+	p := netprofile.Profile{Name: "g", Kind: netprofile.KindFilteringGateway, Control: "/run/c.sock", SensitiveEgress: true, CredentialMode: "none"}
+	got := envpatch.Generic{}.Patch(p)
+	if !reflect.DeepEqual(got.Unset, envpatch.UnsetNames()) || len(got.Set) != 0 {
+		t.Fatalf("patch = %+v", got)
+	}
+}

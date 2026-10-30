@@ -186,11 +186,16 @@ func (a *app) show(args []string) int {
 	out := a.deps.Stdout
 	fmt.Fprintf(out, "name:            %s\n", p.Name)
 	fmt.Fprintf(out, "kind:            %s\n", p.Kind)
+	if p.Kind == netprofile.KindFilteringGateway {
+		fmt.Fprintf(out, "control:         %s\n", p.Control)
+	}
 	fmt.Fprintf(out, "endpoint:        %s\n", p.Endpoint)
 	fmt.Fprintf(out, "bypass_hosts:    %s\n", strings.Join(p.BypassHosts, ", "))
 	target := p.ProbeTarget
 	if p.Kind == netprofile.KindDirect {
 		target = "(none: direct skips all probes)"
+	} else if p.Kind == netprofile.KindFilteringGateway {
+		target = "(none: the runtime owner checks the gateway's health at launch)"
 	} else if target == "" {
 		target = "(none: check --probe and the launch preflight test TCP only)"
 	}
@@ -203,6 +208,10 @@ func (a *app) show(args []string) int {
 	fmt.Fprintf(out, "confirmed:       %s\n", conf.human())
 	fmt.Fprintf(out, "default:         %s\n", yesNo(isDefault))
 	a.printBindings(bindingsOf(cat.File, name))
+	if p.Kind == netprofile.KindFilteringGateway {
+		fmt.Fprintf(out, "patch:           (runtime-owned: registered per launch; no generic patch)\n")
+		return ExitOK
+	}
 	fmt.Fprintf(out, "patch (%s):\n", envpatch.AdapterGeneric)
 	fmt.Fprintf(out, "  unset: %s\n", strings.Join(patch.Unset, " "))
 	for _, kv := range patch.Set {
@@ -414,7 +423,7 @@ func (a *app) check(args []string) int {
 		p, _ := cat.File.Lookup(name)
 		digest := netprofile.Digest(p)
 		r := checkResult{Name: name, Kind: p.Kind, Endpoint: p.Endpoint, Digest: digest, Confirmed: cat.Confirmed(name, digest), OK: true}
-		if *doProbe && p.Kind == netprofile.KindDirect {
+		if *doProbe && (p.Kind == netprofile.KindDirect || p.Kind == netprofile.KindFilteringGateway) {
 			r.Probe = &probe.Result{TCP: probe.StatusSkipped, Connect: probe.StatusSkipped, TLS: probe.StatusSkipped, CheckedAt: a.deps.Now()}
 		} else if *doProbe {
 			t := p.ProbeTarget
@@ -435,8 +444,8 @@ func (a *app) check(args []string) int {
 	if !a.json {
 		for _, r := range results {
 			fmt.Fprintf(a.deps.Stdout, "%s: valid (digest %s), confirmed: %s", r.Name, netprofile.ShortDigest(r.Digest), yesNo(r.Confirmed))
-			if r.Kind == netprofile.KindDirect {
-				fmt.Fprint(a.deps.Stdout, ", kind: direct")
+			if r.Kind == netprofile.KindDirect || r.Kind == netprofile.KindFilteringGateway {
+				fmt.Fprint(a.deps.Stdout, ", kind: "+r.Kind)
 			}
 			fmt.Fprintln(a.deps.Stdout)
 			if r.Probe != nil {

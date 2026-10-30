@@ -22,6 +22,7 @@ import (
 	"net"
 	"net/netip"
 	"net/url"
+	"path"
 	"regexp"
 	"sort"
 	"strconv"
@@ -41,6 +42,11 @@ const (
 	KindExternalHTTPProxy = "external-http-proxy"
 	// KindDirect clears inherited proxy variables without supplying a proxy.
 	KindDirect = "direct"
+	// KindFilteringGateway is a local filtering gateway reached through
+	// its control socket (spec N14). The gateway hands each launch its
+	// runtime endpoints and a launch token, so only the owner of the
+	// actual runtime can bind it; the generic adapter never does.
+	KindFilteringGateway = "filtering-gateway"
 	// CredentialModeNone is the only credential mode of slice A. It is
 	// part of the digest so a later mode changes the digest.
 	CredentialModeNone = "none"
@@ -77,6 +83,9 @@ type Profile struct {
 	// Adapter policy defaults to strict for such profiles. It is allowed
 	// on both kinds, defaults to false, and is digested only when true.
 	SensitiveEgress bool `json:"sensitive_egress,omitempty"`
+	// Control is the absolute path of a filtering gateway's control
+	// socket; only filtering-gateway carries it, and it is digested.
+	Control string `json:"control,omitempty"`
 }
 
 // File is a decoded, normalized and validated catalog. It is valid as a
@@ -129,6 +138,7 @@ type Input struct {
 	BypassHosts     []string
 	ProbeTarget     string
 	SensitiveEgress bool
+	Control         string
 }
 
 var nameRE = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{0,62}$`)
@@ -191,13 +201,28 @@ func Normalize(name string, in Input) (Profile, error) {
 	case "":
 		return Profile{}, invalid("kind is required")
 	case KindDirect:
-		if in.Endpoint != "" || in.BypassHosts != nil || in.ProbeTarget != "" {
-			return Profile{}, invalid("direct forbids endpoint, bypass_hosts and probe_target")
+		if in.Endpoint != "" || in.BypassHosts != nil || in.ProbeTarget != "" || in.Control != "" {
+			return Profile{}, invalid("direct forbids endpoint, bypass_hosts, probe_target and control")
 		}
 		return Profile{Name: name, Kind: kind, CredentialMode: CredentialModeNone, SensitiveEgress: in.SensitiveEgress}, nil
+	case KindFilteringGateway:
+		if in.Endpoint != "" || in.BypassHosts != nil || in.ProbeTarget != "" {
+			return Profile{}, invalid("filtering-gateway forbids endpoint, bypass_hosts and probe_target; the gateway returns its endpoints per launch")
+		}
+		if !in.SensitiveEgress {
+			return Profile{}, invalid("filtering-gateway requires sensitive_egress = true")
+		}
+		control, err := NormalizeControl(in.Control)
+		if err != nil {
+			return Profile{}, invalid("control: " + err.Error())
+		}
+		return Profile{Name: name, Kind: kind, Control: control, CredentialMode: CredentialModeNone, SensitiveEgress: true}, nil
 	case KindExternalHTTPProxy:
+		if in.Control != "" {
+			return Profile{}, invalid("external-http-proxy forbids control")
+		}
 	default:
-		return Profile{}, invalid("kind is not supported; expected external-http-proxy or direct")
+		return Profile{}, invalid("kind is not supported; expected external-http-proxy, direct or filtering-gateway")
 	}
 	endpoint, err := NormalizeEndpoint(in.Endpoint)
 	if err != nil {
@@ -228,6 +253,31 @@ func Normalize(name string, in Input) (Profile, error) {
 		CredentialMode:  CredentialModeNone,
 		SensitiveEgress: in.SensitiveEgress,
 	}, nil
+}
+
+// MaxControlPath is the longest control socket path admitted: a unix
+// socket path must fit sockaddr_un with its NUL on every supported host.
+const MaxControlPath = 103
+
+// NormalizeControl accepts an absolute, clean socket path without NUL,
+// surrounding whitespace or a trailing "/", of at most MaxControlPath
+// bytes. It is returned unchanged; a path is never rewritten.
+func NormalizeControl(raw string) (string, error) {
+	switch {
+	case raw == "":
+		return "", errors.New("is required")
+	case strings.TrimSpace(raw) != raw:
+		return "", errors.New("must not carry surrounding whitespace")
+	case !strings.HasPrefix(raw, "/"):
+		return "", errors.New("must be an absolute path")
+	case strings.IndexByte(raw, 0) >= 0:
+		return "", errors.New("must not contain NUL")
+	case len(raw) > MaxControlPath:
+		return "", errors.New("exceeds the unix socket path limit")
+	case raw == "/" || strings.HasSuffix(raw, "/") || path.Clean(raw) != raw:
+		return "", errors.New("must be a clean socket path")
+	}
+	return raw, nil
 }
 
 // NormalizeEndpoint accepts `http://host:port` only: scheme http,
@@ -444,6 +494,15 @@ func Canonical(p Profile) []byte {
 		Schema:          Schema,
 		SensitiveEgress: p.SensitiveEgress,
 	}
+	if p.Kind == KindFilteringGateway {
+		value = struct {
+			Control         string `json:"control"`
+			CredentialMode  string `json:"credential_mode"`
+			Kind            string `json:"kind"`
+			Schema          string `json:"schema"`
+			SensitiveEgress bool   `json:"sensitive_egress"`
+		}{p.Control, mode, p.Kind, Schema, p.SensitiveEgress}
+	}
 	if p.Kind == KindDirect {
 		value = struct {
 			CredentialMode  string `json:"credential_mode"`
@@ -494,6 +553,7 @@ type rawProfile struct {
 	BypassHosts     []string `toml:"bypass_hosts"`
 	ProbeTarget     *string  `toml:"probe_target"`
 	SensitiveEgress *bool    `toml:"sensitive_egress"`
+	Control         *string  `toml:"control"`
 }
 
 // Parse decodes a catalog strictly (unknown keys refused), normalizes
@@ -555,7 +615,7 @@ func Parse(data []byte) (*File, error) {
 				subject = profileName
 			}
 			for field := range profileTable {
-				for _, known := range []string{"kind", "endpoint", "bypass_hosts", "probe_target", "sensitive_egress"} {
+				for _, known := range []string{"kind", "endpoint", "bypass_hosts", "probe_target", "sensitive_egress", "control"} {
 					if field != known && (asciiFoldEqual(field, known) || strings.ToLower(field) == known) {
 						return nil, refusal.New(refusal.CodeProfileInvalid, subject, "profile keys must use exact lowercase spellings")
 					}
@@ -609,8 +669,18 @@ func Parse(data []byte) (*File, error) {
 	for _, name := range sortedKeys(raw.Networks) {
 		rp := raw.Networks[name]
 		// Pointers retain field presence: even an empty forbidden key is invalid.
-		if strings.TrimSpace(rp.Kind) == KindDirect && (rp.Endpoint != nil || rp.BypassHosts != nil || rp.ProbeTarget != nil) {
-			return nil, refusal.New(refusal.CodeProfileInvalid, name, "direct forbids endpoint, bypass_hosts and probe_target")
+		if strings.TrimSpace(rp.Kind) == KindDirect && (rp.Endpoint != nil || rp.BypassHosts != nil || rp.ProbeTarget != nil || rp.Control != nil) {
+			return nil, refusal.New(refusal.CodeProfileInvalid, name, "direct forbids endpoint, bypass_hosts, probe_target and control")
+		}
+		if strings.TrimSpace(rp.Kind) == KindFilteringGateway && (rp.Endpoint != nil || rp.BypassHosts != nil || rp.ProbeTarget != nil) {
+			return nil, refusal.New(refusal.CodeProfileInvalid, name, "filtering-gateway forbids endpoint, bypass_hosts and probe_target; the gateway returns its endpoints per launch")
+		}
+		if strings.TrimSpace(rp.Kind) == KindExternalHTTPProxy && rp.Control != nil {
+			return nil, refusal.New(refusal.CodeProfileInvalid, name, "external-http-proxy forbids control")
+		}
+		var control string
+		if rp.Control != nil {
+			control = *rp.Control
 		}
 		var endpoint, target string
 		if rp.Endpoint != nil {
@@ -623,7 +693,7 @@ func Parse(data []byte) (*File, error) {
 		if rp.SensitiveEgress != nil {
 			sensitive = *rp.SensitiveEgress
 		}
-		p, err := Normalize(name, Input{Kind: rp.Kind, Endpoint: endpoint, BypassHosts: rp.BypassHosts, ProbeTarget: target, SensitiveEgress: sensitive})
+		p, err := Normalize(name, Input{Kind: rp.Kind, Endpoint: endpoint, BypassHosts: rp.BypassHosts, ProbeTarget: target, SensitiveEgress: sensitive, Control: control})
 		if err != nil {
 			return nil, err
 		}
@@ -691,7 +761,7 @@ func decodeFieldLabel(key toml.Key) string {
 	}
 	if len(key) == 3 && key[0] == "networks" && nameRE.MatchString(key[1]) {
 		switch key[2] {
-		case "kind", "endpoint", "bypass_hosts", "probe_target", "sensitive_egress":
+		case "kind", "endpoint", "bypass_hosts", "probe_target", "sensitive_egress", "control":
 			return "networks." + key[1] + "." + key[2]
 		}
 	}

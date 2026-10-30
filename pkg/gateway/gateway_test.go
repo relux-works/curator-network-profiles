@@ -37,3 +37,18 @@ func TestExternalBackend(t *testing.T) {
 	}
 	var _ gateway.Backend = gateway.External{}
 }
+
+// No library backend serves a filtering gateway: only the owner of the
+// actual runtime registers with it. Direct and external stay served.
+func TestForKindFilteringGateway(t *testing.T) {
+	if _, err := gateway.ForKind(netprofile.KindFilteringGateway); err == nil {
+		t.Fatal("a backend serves filtering-gateway")
+	} else if code, _ := refusal.CodeOf(err); code != refusal.CodeScopeUnsupported {
+		t.Fatalf("err = %v", err)
+	}
+	for _, kind := range []string{netprofile.KindDirect, netprofile.KindExternalHTTPProxy} {
+		if _, err := gateway.ForKind(kind); err != nil {
+			t.Fatalf("%s: %v", kind, err)
+		}
+	}
+}
