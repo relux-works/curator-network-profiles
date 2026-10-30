@@ -18,6 +18,7 @@ import (
 
 	"github.com/relux-works/curator-network-profiles/internal/atomicfile"
 	"github.com/relux-works/curator-network-profiles/internal/envutil"
+	"github.com/relux-works/curator-network-profiles/internal/safefile"
 	"github.com/relux-works/curator-network-profiles/pkg/netprofile"
 	"github.com/relux-works/curator-network-profiles/pkg/refusal"
 )
@@ -55,17 +56,20 @@ func PathsFromEnv(env []string) (Paths, error) {
 	}, nil
 }
 
+// MaxCatalogBytes bounds a catalog read.
+const MaxCatalogBytes = 1 << 20
+
 // Read loads and parses the catalog. An absent file yields (nil, nil,
 // nil): no profiles. A file that exists but cannot be read is
 // network_file_unreadable; parse and validation refusals come from
 // netprofile.Parse. The raw bytes are returned for text edits.
 func Read(p Paths) (*netprofile.File, []byte, error) {
-	data, err := os.ReadFile(p.File)
+	data, err := safefile.Read(p.File, MaxCatalogBytes)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			return nil, nil, nil
 		}
-		detail := "cannot read"
+		detail := "cannot read: not a regular file within its size limit"
 		if errors.Is(err, fs.ErrPermission) {
 			detail = "cannot read: permission denied"
 		}

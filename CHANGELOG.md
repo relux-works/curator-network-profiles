@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Read the operator catalog and the confirmation ledger without blocking:
+  a FIFO, device, directory or dangling link at either path, a file
+  replaced between inspection and open, or one over 1 MiB refuses
+  `network_file_unreadable` at once. A final symbolic link to a regular
+  file is still followed.
 - Add the profile kind `filtering-gateway` (N14): a local filtering
   gateway named by its control socket, `control`, an absolute clean path
   of at most 103 bytes. It carries no `endpoint`, `bypass_hosts` or

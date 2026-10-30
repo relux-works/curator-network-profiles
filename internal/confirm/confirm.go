@@ -15,13 +15,13 @@ import (
 	"encoding/json"
 	"errors"
 	"io/fs"
-	"os"
 	"path/filepath"
 	"sort"
 	"time"
 
 	"github.com/relux-works/curator-network-profiles/internal/atomicfile"
 	"github.com/relux-works/curator-network-profiles/internal/envutil"
+	"github.com/relux-works/curator-network-profiles/internal/safefile"
 	"github.com/relux-works/curator-network-profiles/pkg/refusal"
 )
 
@@ -51,11 +51,14 @@ type Ledger struct {
 // Empty returns a ledger with no entries.
 func Empty() *Ledger { return &Ledger{Schema: Schema, Entries: map[string]Entry{}} }
 
+// maxLedgerBytes bounds a ledger read.
+const maxLedgerBytes = 1 << 20
+
 // Read loads the ledger at path. An absent file is an empty ledger; an
 // unreadable or malformed one is network_file_unreadable (the subject is
 // the basename); a foreign schema is refused the same way.
 func Read(path string) (*Ledger, error) {
-	data, err := os.ReadFile(path)
+	data, err := safefile.Read(path, maxLedgerBytes)
 	if errors.Is(err, fs.ErrNotExist) {
 		return Empty(), nil
 	}
