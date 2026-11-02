@@ -81,7 +81,9 @@ type Profile struct {
 	CredentialMode string `json:"credential_mode"`
 	// SensitiveEgress declares that the profile's egress is sensitive.
 	// Adapter policy defaults to strict for such profiles. It is allowed
-	// on both kinds, defaults to false, and is digested only when true.
+	// on direct and external proxy profiles, defaults to false, and is
+	// digested only when true. Gateways require an explicit declaration
+	// and always digest its value; false permits explicit selection only.
 	SensitiveEgress bool `json:"sensitive_egress,omitempty"`
 	// Control is the absolute path of a filtering gateway's control
 	// socket; only filtering-gateway carries it, and it is digested.
@@ -138,7 +140,11 @@ type Input struct {
 	BypassHosts     []string
 	ProbeTarget     string
 	SensitiveEgress bool
-	Control         string
+	// SensitiveEgressSet distinguishes an explicit false gateway declaration
+	// from omission. True-valued keyed callers retain their behavior; a false
+	// gateway requires this bit. Parse derives it from TOML field presence.
+	SensitiveEgressSet bool
+	Control            string
 }
 
 var nameRE = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{0,62}$`)
@@ -209,14 +215,14 @@ func Normalize(name string, in Input) (Profile, error) {
 		if in.Endpoint != "" || in.BypassHosts != nil || in.ProbeTarget != "" {
 			return Profile{}, invalid("filtering-gateway forbids endpoint, bypass_hosts and probe_target; the gateway returns its endpoints per launch")
 		}
-		if !in.SensitiveEgress {
-			return Profile{}, invalid("filtering-gateway requires sensitive_egress = true")
+		if !in.SensitiveEgress && !in.SensitiveEgressSet {
+			return Profile{}, invalid("filtering-gateway requires an explicit sensitive_egress declaration")
 		}
 		control, err := NormalizeControl(in.Control)
 		if err != nil {
 			return Profile{}, invalid("control: " + err.Error())
 		}
-		return Profile{Name: name, Kind: kind, Control: control, CredentialMode: CredentialModeNone, SensitiveEgress: true}, nil
+		return Profile{Name: name, Kind: kind, Control: control, CredentialMode: CredentialModeNone, SensitiveEgress: in.SensitiveEgress}, nil
 	case KindExternalHTTPProxy:
 		if in.Control != "" {
 			return Profile{}, invalid("external-http-proxy forbids control")
@@ -693,15 +699,24 @@ func Parse(data []byte) (*File, error) {
 		if rp.SensitiveEgress != nil {
 			sensitive = *rp.SensitiveEgress
 		}
-		p, err := Normalize(name, Input{Kind: rp.Kind, Endpoint: endpoint, BypassHosts: rp.BypassHosts, ProbeTarget: target, SensitiveEgress: sensitive, Control: control})
+		p, err := Normalize(name, Input{Kind: rp.Kind, Endpoint: endpoint, BypassHosts: rp.BypassHosts, ProbeTarget: target, SensitiveEgress: sensitive, SensitiveEgressSet: rp.SensitiveEgress != nil, Control: control})
 		if err != nil {
 			return nil, err
 		}
 		f.Networks[name] = p
 	}
 	if f.Default != "" {
-		if _, ok := f.Networks[f.Default]; !ok {
+		p, ok := f.Networks[f.Default]
+		if !ok {
 			return nil, refusal.New(refusal.CodeProfileInvalid, "default", "default names an unknown profile")
+		}
+		if p.Kind == KindFilteringGateway && !p.SensitiveEgress {
+			return nil, fileInvalid("a non-sensitive filtering-gateway cannot be the operator default; select it explicitly")
+		}
+	}
+	for _, target := range f.Bindings.Profiles {
+		if p, ok := f.Networks[target]; ok && p.Kind == KindFilteringGateway && !p.SensitiveEgress {
+			return nil, fileInvalid("a non-sensitive filtering-gateway cannot be a profile binding; select it explicitly")
 		}
 	}
 	return f, nil

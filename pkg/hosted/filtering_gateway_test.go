@@ -4,6 +4,7 @@ package hosted_test
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -16,16 +17,23 @@ import (
 )
 
 // A hosted binding applies the generic patch, which cannot carry a
-// filtering gateway, so a confirmed filtering-gateway selection refuses
+// filtering gateway, so either confirmed sensitive or non-sensitive selection refuses
 // network_scope_unsupported with no probe, no adapter verification and no
 // binding. TestResolveForHostOriginsAndDirect is the valid control.
 func TestFilteringGatewayRefusedForHost(t *testing.T) {
+	for _, sensitive := range []bool{true, false} {
+		t.Run(fmt.Sprint(sensitive), func(t *testing.T) { filteringGatewayRefusedForHost(t, sensitive) })
+	}
+}
+
+func filteringGatewayRefusedForHost(t *testing.T, sensitive bool) {
+	t.Helper()
 	home := t.TempDir()
 	dir := filepath.Join(home, ".curator")
 	if err := os.Mkdir(dir, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	doc := "schema = \"relux-network-profiles-v1\"\n[networks.egress-a]\nkind = \"filtering-gateway\"\ncontrol = \"/run/netproxy/control.sock\"\nsensitive_egress = true\n"
+	doc := fmt.Sprintf("schema = \"relux-network-profiles-v1\"\n[networks.egress-a]\nkind = \"filtering-gateway\"\ncontrol = \"/run/netproxy/control.sock\"\nsensitive_egress = %t\n", sensitive)
 	f, err := netprofile.Parse([]byte(doc))
 	if err != nil {
 		t.Fatal(err)

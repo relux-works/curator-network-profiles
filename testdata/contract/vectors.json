@@ -777,6 +777,28 @@
       },
       "canonical": "{\"control\":\"/run/netproxy/control.sock\",\"credential_mode\":\"none\",\"kind\":\"filtering-gateway\",\"schema\":\"relux-network-profiles-v1\",\"sensitive_egress\":true}",
       "digest": "sha256:a11b81dbab3c85c983e15790196b586e80574a067d036cfa19be251da38bc4fa"
+    },
+    {
+      "id": "D13",
+      "note": "explicit non-sensitive filtering gateway: false is present and has a distinct digest",
+      "name": "gateway-explicit",
+      "input": {
+        "kind": "filtering-gateway",
+        "endpoint": "",
+        "bypass_hosts": null,
+        "sensitive_egress": false,
+        "control": "/run/netproxy/control.sock"
+      },
+      "normalized": {
+        "kind": "filtering-gateway",
+        "endpoint": "",
+        "bypass_hosts": null,
+        "credential_mode": "none",
+        "sensitive_egress": false,
+        "control": "/run/netproxy/control.sock"
+      },
+      "canonical": "{\"control\":\"/run/netproxy/control.sock\",\"credential_mode\":\"none\",\"kind\":\"filtering-gateway\",\"schema\":\"relux-network-profiles-v1\",\"sensitive_egress\":false}",
+      "digest": "sha256:25688286e605fe030aa25ef38e0416f92e78d1a60b7ea15713bb4ffcedc50e29"
     }
   ],
   "envpatch": [

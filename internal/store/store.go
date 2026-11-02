@@ -295,7 +295,7 @@ func renderBlock(prof netprofile.Profile) string {
 	if prof.Kind == netprofile.KindFilteringGateway {
 		b.WriteString("kind             = " + strconv.Quote(prof.Kind) + "\n")
 		b.WriteString("control          = " + strconv.Quote(prof.Control) + "\n")
-		b.WriteString("sensitive_egress = true\n")
+		b.WriteString("sensitive_egress = " + strconv.FormatBool(prof.SensitiveEgress) + "\n")
 		return b.String()
 	}
 	b.WriteString("kind         = " + strconv.Quote(prof.Kind) + "\n")

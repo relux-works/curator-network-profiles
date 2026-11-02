@@ -10,9 +10,15 @@
 - Add the profile kind `filtering-gateway` (N14): a local filtering
   gateway named by its control socket, `control`, an absolute clean path
   of at most 103 bytes. It carries no `endpoint`, `bypass_hosts` or
-  `probe_target`, and `sensitive_egress = true` is mandatory. The digest
+  `probe_target`, and an explicit `sensitive_egress` declaration is mandatory. The digest
   covers `control`, `kind` and `sensitive_egress` (vector D12); every
   existing digest is unchanged.
+- Admit an explicitly non-sensitive filtering gateway only through an
+  explicit network selection. Omission remains invalid; defaults, profile
+  bindings and inherited selection refuse this form. Its distinct digest
+  requires fresh operator confirmation. Sensitive gateways stay strict and
+  cannot be downgraded by a policy flag; all gateway guards remain in force.
+  Provider readback and serialization preserve the actual boolean.
 - Only the owner of the actual runtime binds a filtering gateway.
   `curator network exec` and the hosted binding refuse it with
   `network_scope_unsupported` before patching or probing, no library

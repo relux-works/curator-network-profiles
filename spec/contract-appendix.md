@@ -60,12 +60,20 @@ Direct has exactly these three keys, in byte order:
 ```
 
 A filtering gateway has exactly these five keys, in byte order. Its
-`sensitive_egress` is mandatory and always true, so the key is always
-present (D12):
+`sensitive_egress` declaration is mandatory, so the key is always
+present with its actual boolean value (D12 preserves the true case):
 
 ```text
 {"control":"<control socket path>","credential_mode":"none","kind":"filtering-gateway","schema":"relux-network-profiles-v1","sensitive_egress":true}
 ```
+
+For an explicitly non-sensitive gateway at `/run/netproxy/control.sock`,
+the independently specified bytes are
+`{"control":"/run/netproxy/control.sock","credential_mode":"none","kind":"filtering-gateway","schema":"relux-network-profiles-v1","sensitive_egress":false}`
+and the digest is
+`sha256:25688286e605fe030aa25ef38e0416f92e78d1a60b7ea15713bb4ffcedc50e29`.
+It differs from the true gateway and requires its own confirmation.
+Omission remains invalid; false does not enter the generic omitted-key encoding.
 
 Adding or changing any profile, including direct, is a widening (it reroutes traffic) and MUST require `curator network confirm` at the current digest.
 
@@ -515,6 +523,37 @@ Digest: `sha256:a11b81dbab3c85c983e15790196b586e80574a067d036cfa19be251da38bc4fa
   },
   "canonical": "{\"control\":\"/run/netproxy/control.sock\",\"credential_mode\":\"none\",\"kind\":\"filtering-gateway\",\"schema\":\"relux-network-profiles-v1\",\"sensitive_egress\":true}",
   "digest": "sha256:a11b81dbab3c85c983e15790196b586e80574a067d036cfa19be251da38bc4fa"
+}
+```
+
+**D13** — explicit non-sensitive filtering gateway: false is present and has a distinct digest.
+
+Canonical bytes: `{"control":"/run/netproxy/control.sock","credential_mode":"none","kind":"filtering-gateway","schema":"relux-network-profiles-v1","sensitive_egress":false}`
+
+Digest: `sha256:25688286e605fe030aa25ef38e0416f92e78d1a60b7ea15713bb4ffcedc50e29`
+
+```json vector=D13
+{
+  "id": "D13",
+  "note": "explicit non-sensitive filtering gateway: false is present and has a distinct digest",
+  "name": "gateway-explicit",
+  "input": {
+    "kind": "filtering-gateway",
+    "endpoint": "",
+    "bypass_hosts": null,
+    "sensitive_egress": false,
+    "control": "/run/netproxy/control.sock"
+  },
+  "normalized": {
+    "kind": "filtering-gateway",
+    "endpoint": "",
+    "bypass_hosts": null,
+    "credential_mode": "none",
+    "sensitive_egress": false,
+    "control": "/run/netproxy/control.sock"
+  },
+  "canonical": "{\"control\":\"/run/netproxy/control.sock\",\"credential_mode\":\"none\",\"kind\":\"filtering-gateway\",\"schema\":\"relux-network-profiles-v1\",\"sensitive_egress\":false}",
+  "digest": "sha256:25688286e605fe030aa25ef38e0416f92e78d1a60b7ea15713bb4ffcedc50e29"
 }
 ```
 

@@ -15,7 +15,7 @@ import (
 const gatewayHead = "schema = \"relux-network-profiles-v1\"\n[networks.secret-filter]\nkind = \"filtering-gateway\"\n"
 
 // A filtering-gateway profile carries only its control socket and the
-// mandatory sensitive egress; the gateway hands out endpoints per launch,
+// explicit sensitive-egress declaration; the gateway hands out endpoints per launch,
 // so every endpoint-shaped key is refused, and so is a missing, relative,
 // unclean or oversized control path. The first case is the valid control.
 func TestFilteringGatewayProfile(t *testing.T) {
@@ -38,7 +38,7 @@ func TestFilteringGatewayProfile(t *testing.T) {
 		{"NUL", `control = "/run/con\u0000trol.sock"` + "\n" + sensitive, false},
 		{"over socket limit", `control = "/` + strings.Repeat("a", netprofile.MaxControlPath) + `"` + "\n" + sensitive, false},
 		{"no sensitive egress", control, false},
-		{"sensitive egress false", control + "sensitive_egress = false\n", false},
+		{"sensitive egress false", control + "sensitive_egress = false\n", true},
 		{"endpoint", control + sensitive + `endpoint = "http://127.0.0.1:47811"` + "\n", false},
 		{"empty endpoint", control + sensitive + `endpoint = ""` + "\n", false},
 		{"bypass", control + sensitive + `bypass_hosts = ["localhost", "127.0.0.1", "::1"]` + "\n", false},
@@ -58,7 +58,7 @@ func TestFilteringGatewayProfile(t *testing.T) {
 				t.Fatal(err)
 			}
 			p, _ := f.Lookup("secret-filter")
-			if p.Kind != netprofile.KindFilteringGateway || p.Control != "/Users/op/Library/netproxy/control.sock" || !p.SensitiveEgress ||
+			if p.Kind != netprofile.KindFilteringGateway || p.Control != "/Users/op/Library/netproxy/control.sock" || p.SensitiveEgress != (tc.name != "sensitive egress false") ||
 				p.Endpoint != "" || p.BypassHosts != nil || p.ProbeTarget != "" || p.CredentialMode != "none" {
 				t.Fatalf("profile = %+v", p)
 			}

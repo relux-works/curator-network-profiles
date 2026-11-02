@@ -201,8 +201,8 @@ func (a *app) show(args []string) int {
 	}
 	fmt.Fprintf(out, "probe_target:    %s\n", target)
 	fmt.Fprintf(out, "credential_mode: %s\n", p.CredentialMode)
-	if p.SensitiveEgress {
-		fmt.Fprintf(out, "sensitive_egress: true\n")
+	if p.SensitiveEgress || p.Kind == netprofile.KindFilteringGateway {
+		fmt.Fprintf(out, "sensitive_egress: %t\n", p.SensitiveEgress)
 	}
 	fmt.Fprintf(out, "digest:          %s\n", digest)
 	fmt.Fprintf(out, "confirmed:       %s\n", conf.human())

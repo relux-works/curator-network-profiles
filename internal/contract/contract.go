@@ -44,7 +44,7 @@ type input struct {
 	Endpoint        string   `json:"endpoint"`
 	BypassHosts     []string `json:"bypass_hosts"`
 	ProbeTarget     string   `json:"probe_target,omitempty"`
-	SensitiveEgress bool     `json:"sensitive_egress,omitempty"`
+	SensitiveEgress *bool    `json:"sensitive_egress,omitempty"`
 	Control         string   `json:"control,omitempty"`
 }
 
@@ -54,7 +54,7 @@ type normed struct {
 	BypassHosts     []string `json:"bypass_hosts"`
 	ProbeTarget     string   `json:"probe_target,omitempty"`
 	CredentialMode  string   `json:"credential_mode"`
-	SensitiveEgress bool     `json:"sensitive_egress,omitempty"`
+	SensitiveEgress *bool    `json:"sensitive_egress,omitempty"`
 	Control         string   `json:"control,omitempty"`
 }
 
@@ -148,6 +148,8 @@ var (
 	identityB  = binding.AdapterIdentity{Adapter: envpatch.AdapterGeneric, Harness: "exec", Build: "2.1.0", Entrypoint: "codex"}
 )
 
+func boolPointer(value bool) *bool { return &value }
+
 // Vectors computes the set.
 func Vectors() (Set, error) {
 	s := Set{Schema: Schema, Generator: "go run ./internal/contract/cmd/contract-vectors"}
@@ -156,28 +158,33 @@ func Vectors() (Set, error) {
 		id, note, name string
 		in             input
 	}{
-		{"D1", "the specification's egress-a", "egress-a", input{"external-http-proxy", "http://127.0.0.1:18081", specBypass, "", false, ""}},
-		{"D2", "the specification's egress-b", "egress-b", input{"external-http-proxy", "http://127.0.0.1:18082", specBypass, "", false, ""}},
-		{"D3", "normalization: scheme and host case, trailing slash, whitespace, case and duplicates in bypass_hosts", "egress-a-alt", input{"external-http-proxy", "HTTP://127.0.0.1:18081/", []string{"LocalHost", "::1", " 127.0.0.1 ", "localhost"}, "", false, ""}},
-		{"D4", "a host-name endpoint, an engine host and a suffix entry in bypass_hosts", "corp", input{"external-http-proxy", "http://proxy.corp.invalid:3128", []string{"localhost", "127.0.0.1", "::1", "engine.example", ".corp.invalid"}, "", false, ""}},
-		{"D5", "the profile name and probe_target are not part of the digest", "egress-a-copy", input{"external-http-proxy", "http://127.0.0.1:18081", specBypass, "probe.invalid:443", false, ""}},
-		{"D6", "IPv4-mapped IPv6 is unmapped to canonical IPv4", "mapped", input{"external-http-proxy", "http://[::ffff:127.0.0.1]:18081", specBypass, "", false, ""}},
-		{"D7", "expanded IPv6 is compressed and bracketed", "ipv6", input{"external-http-proxy", "http://[0:0:0:0:0:0:0:1]:18081", specBypass, "", false, ""}},
-		{"D8", "hexadecimal IPv4-mapped IPv6 also becomes IPv4", "mapped-hex", input{"external-http-proxy", "http://[::FFFF:7F00:1]:18081/", specBypass, "", false, ""}},
+		{"D1", "the specification's egress-a", "egress-a", input{"external-http-proxy", "http://127.0.0.1:18081", specBypass, "", nil, ""}},
+		{"D2", "the specification's egress-b", "egress-b", input{"external-http-proxy", "http://127.0.0.1:18082", specBypass, "", nil, ""}},
+		{"D3", "normalization: scheme and host case, trailing slash, whitespace, case and duplicates in bypass_hosts", "egress-a-alt", input{"external-http-proxy", "HTTP://127.0.0.1:18081/", []string{"LocalHost", "::1", " 127.0.0.1 ", "localhost"}, "", nil, ""}},
+		{"D4", "a host-name endpoint, an engine host and a suffix entry in bypass_hosts", "corp", input{"external-http-proxy", "http://proxy.corp.invalid:3128", []string{"localhost", "127.0.0.1", "::1", "engine.example", ".corp.invalid"}, "", nil, ""}},
+		{"D5", "the profile name and probe_target are not part of the digest", "egress-a-copy", input{"external-http-proxy", "http://127.0.0.1:18081", specBypass, "probe.invalid:443", nil, ""}},
+		{"D6", "IPv4-mapped IPv6 is unmapped to canonical IPv4", "mapped", input{"external-http-proxy", "http://[::ffff:127.0.0.1]:18081", specBypass, "", nil, ""}},
+		{"D7", "expanded IPv6 is compressed and bracketed", "ipv6", input{"external-http-proxy", "http://[0:0:0:0:0:0:0:1]:18081", specBypass, "", nil, ""}},
+		{"D8", "hexadecimal IPv4-mapped IPv6 also becomes IPv4", "mapped-hex", input{"external-http-proxy", "http://[::FFFF:7F00:1]:18081/", specBypass, "", nil, ""}},
 		{"D9", "named direct: no endpoint, bypass_hosts or probe_target", "direct", input{Kind: netprofile.KindDirect}},
-		{"D10", "sensitive egress is digested: D1 plus the declaration has a different digest", "egress-a-sensitive", input{Kind: "external-http-proxy", Endpoint: "http://127.0.0.1:18081", BypassHosts: specBypass, SensitiveEgress: true}},
-		{"D11", "named direct with sensitive egress: the declaration is digested", "direct-sensitive", input{Kind: netprofile.KindDirect, SensitiveEgress: true}},
-		{"D12", "filtering gateway: the control socket and the mandatory sensitive egress are digested; no endpoint or bypass_hosts", "secret-filter", input{Kind: netprofile.KindFilteringGateway, SensitiveEgress: true, Control: "/run/netproxy/control.sock"}},
+		{"D10", "sensitive egress is digested: D1 plus the declaration has a different digest", "egress-a-sensitive", input{Kind: "external-http-proxy", Endpoint: "http://127.0.0.1:18081", BypassHosts: specBypass, SensitiveEgress: boolPointer(true)}},
+		{"D11", "named direct with sensitive egress: the declaration is digested", "direct-sensitive", input{Kind: netprofile.KindDirect, SensitiveEgress: boolPointer(true)}},
+		{"D12", "filtering gateway: the control socket and the mandatory sensitive egress are digested; no endpoint or bypass_hosts", "secret-filter", input{Kind: netprofile.KindFilteringGateway, SensitiveEgress: boolPointer(true), Control: "/run/netproxy/control.sock"}},
+		{"D13", "explicit non-sensitive filtering gateway: false is present and has a distinct digest", "gateway-explicit", input{Kind: netprofile.KindFilteringGateway, SensitiveEgress: boolPointer(false), Control: "/run/netproxy/control.sock"}},
 	}
 	for _, d := range digestIn {
-		p, err := netprofile.Normalize(d.name, netprofile.Input{Kind: d.in.Kind, Endpoint: d.in.Endpoint, BypassHosts: d.in.BypassHosts, ProbeTarget: d.in.ProbeTarget, SensitiveEgress: d.in.SensitiveEgress, Control: d.in.Control})
+		p, err := netprofile.Normalize(d.name, netprofile.Input{Kind: d.in.Kind, Endpoint: d.in.Endpoint, BypassHosts: d.in.BypassHosts, ProbeTarget: d.in.ProbeTarget, SensitiveEgress: d.in.SensitiveEgress != nil && *d.in.SensitiveEgress, SensitiveEgressSet: d.in.SensitiveEgress != nil, Control: d.in.Control})
 		if err != nil {
 			return Set{}, fmt.Errorf("%s: %w", d.id, err)
 		}
 		profiles[d.id] = p
+		var normalizedSensitive *bool
+		if d.in.SensitiveEgress != nil {
+			normalizedSensitive = boolPointer(p.SensitiveEgress)
+		}
 		s.Digest = append(s.Digest, DigestVector{
 			ID: d.id, Note: d.note, Name: d.name, Input: d.in,
-			Normalized: normed{Kind: p.Kind, Endpoint: p.Endpoint, BypassHosts: p.BypassHosts, ProbeTarget: p.ProbeTarget, CredentialMode: p.CredentialMode, SensitiveEgress: p.SensitiveEgress, Control: p.Control},
+			Normalized: normed{Kind: p.Kind, Endpoint: p.Endpoint, BypassHosts: p.BypassHosts, ProbeTarget: p.ProbeTarget, CredentialMode: p.CredentialMode, SensitiveEgress: normalizedSensitive, Control: p.Control},
 			Canonical:  string(netprofile.Canonical(p)),
 			Digest:     netprofile.Digest(p),
 		})

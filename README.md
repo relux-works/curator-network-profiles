@@ -93,7 +93,25 @@ then defaults to strict for that profile: unknown builds refuse with
 pin never qualifies there. The declaration cannot be downgraded
 to optimistic by a mode flag. It is digested when true, so adding or
 removing the declaration changes the profile digest and needs `confirm`;
-explicit `false` is intentionally identical to absence.
+explicit `false` is intentionally identical to absence for direct and
+external HTTP proxy profiles.
+
+Filtering gateways require an explicit boolean. A gateway with
+`sensitive_egress = false` supports unqualified option C only when selected
+through explicit `--network`; automatic defaults, profile bindings,
+inherited selection and machine-wide launcher choices refuse it. Its
+digest includes false and requires its own operator confirmation. True
+gateways keep strict admission and their existing digests. Both forms retain
+all gateway guards and refuse generic `curator network exec` and hosted use.
+The launcher shows the exact unqualified warning and typed provenance; its
+caller retains that record through the existing session or receipt path.
+Neither provenance storage nor a successful request establishes qualification.
+
+Go callers constructing a false gateway must set
+`netprofile.Input.SensitiveEgressSet = true`; a zero-valued declaration
+refuses. TOML parsing supplies this presence bit. Upgrade every gateway
+catalog reader and launcher before adding the explicit-false form: old
+readers reject that catalog rather than silently change sensitive behavior.
 
 - Upgrade **every catalog reader on the machine** to this version
   **before adding the field**. A pre-field reader rejects the **whole

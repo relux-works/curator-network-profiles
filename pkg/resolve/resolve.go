@@ -149,6 +149,9 @@ func Resolve(file *netprofile.File, ledger Confirmations, req Request) (*Result,
 	if !found {
 		return nil, refusal.New(refusal.CodeProfileUnknown, name, "no such network profile on this machine")
 	}
+	if profile.Kind == netprofile.KindFilteringGateway && !profile.SensitiveEgress && sel.Origin != OriginExplicit {
+		return nil, refusal.New(refusal.CodeScopeUnsupported, name, "a non-sensitive filtering-gateway requires explicit --network selection")
+	}
 	switch sel.RequiredAssurance {
 	case binding.AssuranceCooperative:
 	case binding.AssuranceEnforced:
