@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Share an inclusive 512 MiB native artifact snapshot limit with consumers,
+  admitting current single-file executables above 256 MiB while retaining
+  full-byte identity and the specific oversized-artifact refusal.
 - Read the operator catalog and the confirmation ledger without blocking:
   a FIFO, device, directory or dangling link at either path, a file
   replaced between inspection and open, or one over 1 MiB refuses

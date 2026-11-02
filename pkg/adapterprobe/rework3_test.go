@@ -522,7 +522,7 @@ func TestRemainingRefusals(t *testing.T) {
 		{"invalid entrypoint syntax", func(r *Request) { r.Adapter.Entrypoint = "" }, Policy{}, "invalid_request"},
 		{"invalid recipe syntax", func(r *Request) { r.Recipe = "BadRecipe" }, Policy{}, "invalid_request"},
 		{"raw args", func(r *Request) { r.Args = []string{"--config"} }, Policy{}, "unversioned_invocation"},
-		{"oversized artifact", func(r *Request) { r.Artifact = make([]byte, (256<<20)+1); copy(r.Artifact, "\x7fELF") }, Policy{}, "artifact_too_large"},
+		{"oversized artifact", func(r *Request) { r.Artifact = make([]byte, MaxArtifactBytes+1); copy(r.Artifact, "\x7fELF") }, Policy{}, "artifact_too_large"},
 		{"non-native artifact", func(r *Request) { r.Artifact = []byte("MZ-not-native-padding........") }, Policy{}, "runtime_closure_unsupported"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

@@ -13,6 +13,12 @@ persistent-cache access return typed Unsupported until secure native
 supervision exists. Plans, direct profiles, dry runs and live reattach all
 evaluate here; see [the integration contract](docs/integration-contract.md).
 
+`adapterprobe.MaxArtifactBytes` sets an inclusive 512 MiB ceiling for complete
+native executable snapshots, including current single-file executables larger
+than 256 MiB. Consumers share this bound and must reject an oversized artifact
+without identifying a truncated prefix. The byte ceiling is not an RSS limit;
+the caller-owned snapshot remains in memory for its lifetime.
+
 ## Layout
 
 | Path | Content |

@@ -22,7 +22,12 @@ import (
 )
 
 const DefaultTimeout = 10 * time.Second
-const maxArtifactBytes = 256 << 20
+
+// MaxArtifactBytes is the inclusive resource ceiling for a complete immutable
+// native executable snapshot. Consumers must read at most this limit plus one
+// byte and refuse larger artifacts, never identify a truncated prefix.
+const MaxArtifactBytes = 512 << 20
+
 const TransportScope = "generic-proxy-transport-v1"
 
 var ErrUnsupported = errors.New("adapter probe unsupported")
@@ -123,7 +128,7 @@ func identify(ctx context.Context, req Request) (Result, error) {
 	if len(req.Artifact) == 0 {
 		return failed(Result{}, "artifact_snapshot_required")
 	}
-	if len(req.Artifact) > maxArtifactBytes {
+	if len(req.Artifact) > MaxArtifactBytes {
 		return failed(Result{}, "artifact_too_large")
 	}
 	// Accept only native executable containers, not #! scripts/interpreters with
