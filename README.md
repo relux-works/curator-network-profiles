@@ -113,6 +113,12 @@ The launcher shows the exact unqualified warning and typed provenance; its
 caller retains that record through the existing session or receipt path.
 Neither provenance storage nor a successful request establishes qualification.
 
+`adapterprobe` also names the `codex-cli / interactive` tuple with recipe
+`codex-interactive-v1`. Strict policy accepts only an exact allowlisted build
+for that tuple. Automatic probing remains `credential_free_recipe_unavailable`;
+the recipe does not run Codex, provide credentials or add generic exec/hosted
+support. Consumers may impose stricter admission than the library policy.
+
 Go callers constructing a false gateway must set
 `netprofile.Input.SensitiveEgressSet = true`; a zero-valued declaration
 refuses. TOML parsing supplies this presence bit. Upgrade every gateway

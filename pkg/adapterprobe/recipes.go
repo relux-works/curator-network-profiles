@@ -19,6 +19,7 @@ var recipes = map[string]recipe{
 	// admitted only through an exact allowlisted build in strict mode; no
 	// automatic qualification exists for it.
 	"claude-interactive-v1": {Harness: "claude-code", Entrypoint: "interactive", Unavailable: "credential_free_recipe_unavailable"},
+	"codex-interactive-v1":  {Harness: "codex-cli", Entrypoint: "interactive", Unavailable: "credential_free_recipe_unavailable"},
 	"codex-exec-v1":         {Harness: "codex-cli", Entrypoint: "exec", Unavailable: "runtime_closure_unsupported"},
 	"muse-exec-v1":          {Harness: "muse", Entrypoint: "exec", Unavailable: "credential_free_recipe_unavailable"},
 	"codex-hosted-v1":       {Harness: "codex-cli", Entrypoint: "app-server", Unavailable: "protocol_recipe_unsupported"},
