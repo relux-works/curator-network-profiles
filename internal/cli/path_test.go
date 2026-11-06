@@ -9,7 +9,9 @@ import (
 )
 
 func TestLookPathSkipsEmptyElements(t *testing.T) {
-	local, err := os.CreateTemp(".", "empty-path-tool-")
+	localDir := t.TempDir()
+	t.Chdir(localDir)
+	local, err := os.CreateTemp(localDir, "empty-path-tool-")
 	if err != nil {
 		t.Fatal(err)
 	}
