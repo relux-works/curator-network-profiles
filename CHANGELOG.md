@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Add the adapter recipe `codex-interactive-v1` for the exact
+  `generic-env-v1 / codex-cli / interactive` tuple, without automatic
+  qualification. Optimistic and matching non-sensitive pinned policy admit
+  builds without evidence as unqualified with warning and provenance;
+  sensitive or strict policy requires an exact allowlisted build, and an exec
+  allowlist entry never qualifies interactive use. Filtering-gateway consumers
+  retain their independent launch and child-scope gates.
 - Share an inclusive 512 MiB native artifact snapshot limit with consumers,
   admitting current single-file executables above 256 MiB while retaining
   full-byte identity and the specific oversized-artifact refusal.
